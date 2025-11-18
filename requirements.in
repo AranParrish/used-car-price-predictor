@@ -1,0 +1,17 @@
+# Testing dependencies
+pytest
+pytest-cov
+pytest-testdox
+# Security checks
+safety
+bandit
+# PEP8 compliance
+black
+# Data manipulation
+numpy
+pandas
+# ML model and evaluation tools
+torch
+scikit-learn
+# Visualisation
+matplotlib
