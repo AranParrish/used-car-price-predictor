@@ -1,0 +1,41 @@
+# Python bytecode & cache files
+__pycache**
+*.pyc
+*.pyo
+*.pyd
+
+# Pytest & coverage redundant files
+.pytest*
+*coverage*
+
+# PyTorch & ML framework caches
+~/.cache/torch/
+~/.cache/huggingface/
+*.joblib
+joblib/
+
+# VS code cache files
+**/.vscode/
+
+# macOS system files
+.DS_Store
+**/.DS_Store
+Thumbs.db
+
+# Virtual environment and associated files
+venv/
+.venv/
+.env/
+
+# Git
+.git/
+.gitignore
+
+# Docker build artifacts
+**/dist/
+**/build/
+**/*egg*
+
+# Dev environment files
+requirements-dev*
+requirements.in

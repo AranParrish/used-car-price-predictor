@@ -1,0 +1,10 @@
+-r requirements.in
+# Testing dependencies
+pytest
+pytest-cov
+pytest-testdox
+# Security checks
+safety
+bandit
+# PEP8 compliance
+black
