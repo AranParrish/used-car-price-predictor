@@ -1,14 +1,28 @@
 # Python cache files
-__pycache**
-**/*pycache
-**/*egg*
-**/*.pyc
-**/*_cache
-# macOS folder system hidden files
-**/.DS_Store
+__pycache__/
+*.py[cod]
+*_cache/
+# macOS system files
 .DS_Store
 # VS code cache files
-**/.vscode/
+.vscode/
 # Testing cache files
-*coverage*
-.pytest*
+.coverage
+coverage.xml
+htmlcov/
+.pytest_cache/
+# Virtual environment files
+venv/
+.venv/
+.env/
+# Docker / build artefacts
+dist/
+build/
+*.egg-info/
+*.log
+*.pid
+docker-compose.override.yaml
+# ML cache files
+.cache/
+.wandb/
+.mlflow/
