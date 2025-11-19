@@ -6,8 +6,6 @@
 
 PROJECT_NAME = used-car-price-predictor
 PYTHON_INTERPRETER = python
-# WD=$(shell pwd)
-# PYTHONPATH=${WD}
 SHELL := /bin/bash
 
 ## Create python interpreter environment.
@@ -42,7 +40,7 @@ dev-requirements: create-environment
 
 ## Run the security test (bandit + safety)
 security-test:
-	$(call execute_in_env, safety scan -r ./requirements.txt)
+	$(call execute_in_env, safety scan -r ./requirements-dev.txt)
 	$(call execute_in_env, bandit -lll */*.py *c/*.py)
 
 ## Run the black code check
