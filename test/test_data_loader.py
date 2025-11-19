@@ -34,7 +34,7 @@ class TestLoadData:
             "engineSize",
         ]
         df = load_data(source_data)
-        assert all(column in expected_columns for column in list(df.columns))
+        assert all(column in expected_columns for column in df.columns)
 
     @pytest.mark.it("Loaded data is of expected type")
     def test_load_data_returns_expected_types(self, source_data):
