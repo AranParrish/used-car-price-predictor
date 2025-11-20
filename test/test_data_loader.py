@@ -68,12 +68,12 @@ class TestValidData:
 @pytest.mark.describe("Error handling")
 class TestErrorHandling:
 
-    @pytest.mark.it("Raises exception for empty data folder")
+    @pytest.mark.it("Raises exception for invalid data folder")
     def test_invalid_path(self):
         invalid_path = Path("data/invalid/")
         with pytest.raises(ValueError) as excinfo:
             df = load_data(invalid_path)
-        assert f"No CSV files found at {invalid_path}" in str(excinfo.value)
+        assert f"No valid CSV files found at {invalid_path}" in str(excinfo.value)
 
     @pytest.mark.it("Removes invalid rows")
     def test_remove_invalid_data(self, invalid_test_data):
@@ -85,3 +85,17 @@ class TestErrorHandling:
         df = load_data(invalid_test_data)
         extra_cols = set(df.columns) - set(expected_columns)
         assert extra_cols == set()
+
+    @pytest.mark.it("Excludes data with missing columns")
+    def test_data_missing_cols(self, tmp_path, caplog):
+        # Note: need to include some valid data as will otherwise raise ValueError and exit for having no valid data
+        df_all_cols = pd.read_csv("data/invalid_test_data/ford.csv")
+        df_missing_cols = df_all_cols.drop(columns=["year"])
+        all_cols_file = tmp_path / "ford.csv"
+        df_all_cols.to_csv(all_cols_file, index=False)
+        missing_file = tmp_path / "ford_missing.csv"
+        df_missing_cols.to_csv(missing_file, index=False)
+        with caplog.at_level("WARNING"):
+            load_data(tmp_path)
+        assert missing_file.name in caplog.text
+        assert "year" in caplog.text

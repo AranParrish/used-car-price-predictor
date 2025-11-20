@@ -1,5 +1,8 @@
 import pandas as pd
 from pathlib import Path
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 def load_data(data_dir: Path) -> pd.DataFrame:
@@ -16,27 +19,6 @@ def load_data(data_dir: Path) -> pd.DataFrame:
         ValueError if input data directory does not contain CSV files
     """
 
-    # Read in source data and combine into a single dataframe
-    dfs = {}
-    for csv_file in data_dir.glob("*.csv"):
-        brand = csv_file.stem
-        df = pd.read_csv(csv_file)
-        df["brand"] = brand
-        dfs[brand] = df
-    try:
-        combined_df = pd.concat(dfs.values(), ignore_index=True, sort=False)
-    except ValueError:
-        raise ValueError(f"No CSV files found at {data_dir}")
-
-    # Combine "tax" and "tax(£)" column values into a single column
-    if "tax(£)" in combined_df.columns and "tax" in combined_df.columns:
-        combined_df.fillna({"tax(£)": 0}, inplace=True)
-        combined_df.fillna({"tax": 0}, inplace=True)
-        combined_df["tax"] = combined_df["tax"] + combined_df["tax(£)"]
-        combined_df.drop(labels="tax(£)", axis=1, inplace=True)
-    elif "tax(£)" in combined_df.columns:
-        combined_df.rename(columns={"tax(£)": "tax"}, inplace=True)
-
     # Mapping of expected columns and their types
     types_map = {
         "brand": "string",
@@ -50,6 +32,33 @@ def load_data(data_dir: Path) -> pd.DataFrame:
         "mpg": "float64",
         "engineSize": "float64",
     }
+
+    # Read in source data and combine into a single dataframe
+    dfs = {}
+    for csv_file in data_dir.glob("*.csv"):
+        brand = csv_file.stem
+        df = pd.read_csv(csv_file)
+        # Rename "tax(£)" column to "tax"
+        if "tax(£)" in df.columns:
+            df.rename(columns={"tax(£)": "tax"}, inplace=True)
+        # Check all required columns are present, otherwise skip and warn user
+        if set(types_map.keys() - {"brand"}).issubset(set(df.columns)):
+            df["brand"] = brand
+            dfs[brand] = df
+        else:
+            missing_cols = [
+                col
+                for col in set(types_map.keys() - {"brand"})
+                if col not in df.columns
+            ]
+            logger.warning(
+                "Skipping %s as missing columns %s", csv_file.name, missing_cols
+            )
+    try:
+        combined_df = pd.concat(dfs.values(), ignore_index=True, sort=False)
+    except ValueError:
+        raise ValueError(f"No valid CSV files found at {data_dir}")
+
     # Drop any extra columns
     if len(combined_df.columns) > len(types_map):
         cols_to_drop = set(combined_df.columns) - set(types_map.keys())
