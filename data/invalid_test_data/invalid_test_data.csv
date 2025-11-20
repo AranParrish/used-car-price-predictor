@@ -1,0 +1,7 @@
+brand,model,year,price,transmission,mileage,fuelType,tax,mpg,engineSize,extra_feature
+Ford,Focus,2015,8000,Manual,55000,Petrol,150,55.4,1.6,ok
+BMW,320,2018,,Automatic,30000,Diesel,180,48.7,2.0,missing_price
+Audi,A3,2012,7000,Manual,not_a_number,Diesel,145,60.1,1.4,wrong_mileage
+Toyota,Yaris,2020,9000,Manual,20000,InvalidFuel,130,not_a_float,1.0,bad_mpg
+Honda,Civic,2017,11000,Manual,,Petrol,160,42.5,NaN,missing_engine
+VW,Golf,2016,not_numeric,Automatic,40000,Diesel,NaN,51.0,1.8,bad_price
