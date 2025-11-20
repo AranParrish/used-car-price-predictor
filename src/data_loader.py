@@ -13,7 +13,7 @@ def load_data(data_dir: Path) -> pd.DataFrame:
         Pandas dataframe with source data combined and cleaned
 
     Raises:
-        TBD
+        ValueError if input data directory does not contain CSV files
     """
 
     # Read in source data and combine into a single dataframe
@@ -23,13 +23,19 @@ def load_data(data_dir: Path) -> pd.DataFrame:
         df = pd.read_csv(csv_file)
         df["brand"] = brand
         dfs[brand] = df
-    combined_df = pd.concat(dfs.values(), ignore_index=True, sort=False)
+    try:
+        combined_df = pd.concat(dfs.values(), ignore_index=True, sort=False)
+    except ValueError:
+        raise ValueError(f"No CSV files found at {data_dir}")
 
     # Combine "tax" and "tax(£)" column values into a single column
-    combined_df.fillna({"tax(£)": 0}, inplace=True)
-    combined_df.fillna({"tax": 0}, inplace=True)
-    combined_df["tax"] = combined_df["tax"] + combined_df["tax(£)"]
-    combined_df.drop(labels="tax(£)", axis=1, inplace=True)
+    if "tax(£)" and "tax" in combined_df.columns:
+        combined_df.fillna({"tax(£)": 0}, inplace=True)
+        combined_df.fillna({"tax": 0}, inplace=True)
+        combined_df["tax"] = combined_df["tax"] + combined_df["tax(£)"]
+        combined_df.drop(labels="tax(£)", axis=1, inplace=True)
+    elif "tax(£)" in combined_df.columns:
+        combined_df.rename(columns={"tax(£)": "tax"}, inplace=True)
 
     # Ensure correct types for all columns
     types_map = {

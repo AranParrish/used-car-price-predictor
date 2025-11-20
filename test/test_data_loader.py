@@ -7,20 +7,20 @@ from src.data_loader import load_data
 
 
 @pytest.fixture(scope="function")
-def source_data():
-    return Path("data/raw_data/")
+def valid_test_data():
+    return Path("data/valid_test_data/")
 
 
-@pytest.mark.describe("Load data function tests")
-class TestLoadData:
+@pytest.mark.describe("Valid data tests")
+class TestValidData:
 
     @pytest.mark.it("Returns a dataframe")
-    def test_load_data_returns_dataframe(self, source_data):
-        df = load_data(source_data)
+    def test_load_data_returns_dataframe(self, valid_test_data):
+        df = load_data(valid_test_data)
         assert isinstance(df, pd.DataFrame)
 
     @pytest.mark.it("Dataframe contains expected columns")
-    def test_load_data_returns_expected_columns(self, source_data):
+    def test_load_data_returns_expected_columns(self, valid_test_data):
         expected_columns = [
             "brand",
             "model",
@@ -33,15 +33,33 @@ class TestLoadData:
             "mpg",
             "engineSize",
         ]
-        df = load_data(source_data)
-        assert all(column in expected_columns for column in df.columns)
+        df = load_data(valid_test_data)
+        assert all(column in df.columns for column in expected_columns)
 
     @pytest.mark.it("Loaded data is of expected type")
-    def test_load_data_returns_expected_types(self, source_data):
+    def test_load_data_returns_expected_types(self, valid_test_data):
         string_types = ["brand", "model", "transmission", "fuelType"]
         int_types = ["year", "price", "mileage", "tax"]
         float_types = ["mpg", "engineSize"]
-        df = load_data(source_data)
+        df = load_data(valid_test_data)
         assert all(ptypes.is_string_dtype(df[str_col]) for str_col in string_types)
         assert all(ptypes.is_integer_dtype(df[int_col]) for int_col in int_types)
         assert all(ptypes.is_float_dtype(df[float_col]) for float_col in float_types)
+
+    @pytest.mark.it("Combines tax and tax(£) columns if both present")
+    def test_combines_tax_columns(self):
+        input_data = Path("data/raw_data/")
+        df = load_data(input_data)
+        assert "tax(£)" not in df.columns
+        assert len(df.columns) == 10
+
+
+@pytest.mark.describe("Exception handling")
+class TestExceptionHandling:
+
+    @pytest.mark.it("Raises exception for empty data folder")
+    def test_invalid_path(self):
+        invalid_path = Path("data/invalid/")
+        with pytest.raises(ValueError) as excinfo:
+            df = load_data(invalid_path)
+        assert f"No CSV files found at {invalid_path}" in str(excinfo.value)
