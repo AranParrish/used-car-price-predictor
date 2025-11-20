@@ -11,6 +11,27 @@ def valid_test_data():
     return Path("data/valid_test_data/")
 
 
+@pytest.fixture(scope="function")
+def invalid_test_data():
+    return Path("data/invalid_test_data/")
+
+
+@pytest.fixture(scope="function")
+def expected_columns():
+    return [
+        "brand",
+        "model",
+        "year",
+        "price",
+        "transmission",
+        "mileage",
+        "fuelType",
+        "tax",
+        "mpg",
+        "engineSize",
+    ]
+
+
 @pytest.mark.describe("Valid data tests")
 class TestValidData:
 
@@ -20,19 +41,9 @@ class TestValidData:
         assert isinstance(df, pd.DataFrame)
 
     @pytest.mark.it("Dataframe contains expected columns")
-    def test_load_data_returns_expected_columns(self, valid_test_data):
-        expected_columns = [
-            "brand",
-            "model",
-            "year",
-            "price",
-            "transmission",
-            "mileage",
-            "fuelType",
-            "tax",
-            "mpg",
-            "engineSize",
-        ]
+    def test_load_data_returns_expected_columns(
+        self, valid_test_data, expected_columns
+    ):
         df = load_data(valid_test_data)
         assert all(column in df.columns for column in expected_columns)
 
@@ -54,8 +65,8 @@ class TestValidData:
         assert len(df.columns) == 10
 
 
-@pytest.mark.describe("Exception handling")
-class TestExceptionHandling:
+@pytest.mark.describe("Error handling")
+class TestErrorHandling:
 
     @pytest.mark.it("Raises exception for empty data folder")
     def test_invalid_path(self):
@@ -63,3 +74,14 @@ class TestExceptionHandling:
         with pytest.raises(ValueError) as excinfo:
             df = load_data(invalid_path)
         assert f"No CSV files found at {invalid_path}" in str(excinfo.value)
+
+    @pytest.mark.it("Removes invalid rows")
+    def test_remove_invalid_data(self, invalid_test_data):
+        df = load_data(invalid_test_data)
+        assert df.isna().sum().sum() == 0
+
+    @pytest.mark.it("Strips extra columns")
+    def test_extra_columns_removed(self, invalid_test_data, expected_columns):
+        df = load_data(invalid_test_data)
+        extra_cols = set(df.columns) - set(expected_columns)
+        assert extra_cols == set()

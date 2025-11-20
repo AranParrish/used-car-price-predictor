@@ -29,7 +29,7 @@ def load_data(data_dir: Path) -> pd.DataFrame:
         raise ValueError(f"No CSV files found at {data_dir}")
 
     # Combine "tax" and "tax(£)" column values into a single column
-    if "tax(£)" and "tax" in combined_df.columns:
+    if "tax(£)" in combined_df.columns and "tax" in combined_df.columns:
         combined_df.fillna({"tax(£)": 0}, inplace=True)
         combined_df.fillna({"tax": 0}, inplace=True)
         combined_df["tax"] = combined_df["tax"] + combined_df["tax(£)"]
@@ -37,7 +37,7 @@ def load_data(data_dir: Path) -> pd.DataFrame:
     elif "tax(£)" in combined_df.columns:
         combined_df.rename(columns={"tax(£)": "tax"}, inplace=True)
 
-    # Ensure correct types for all columns
+    # Mapping of expected columns and their types
     types_map = {
         "brand": "string",
         "model": "string",
@@ -50,14 +50,18 @@ def load_data(data_dir: Path) -> pd.DataFrame:
         "mpg": "float64",
         "engineSize": "float64",
     }
+    # Drop any extra columns
+    if len(combined_df.columns) > len(types_map):
+        cols_to_drop = set(combined_df.columns) - set(types_map.keys())
+        combined_df.drop(columns=cols_to_drop, axis=1, inplace=True)
+
+    # Drop invalid rows and cast columns to mapped types
     for column, dtype in types_map.items():
-        if column in combined_df.columns:
-            if dtype in ("int64", "float64"):
-                combined_df[column] = pd.to_numeric(
-                    combined_df[column], errors="coerce"
-                )
-                combined_df[column] = combined_df[column].astype(dtype)
-            else:
-                combined_df[column] = combined_df[column].astype(dtype)
+        if dtype in ("int64", "float64"):
+            combined_df[column] = pd.to_numeric(combined_df[column], errors="coerce")
+            combined_df = combined_df.dropna(subset=column)
+            combined_df[column] = combined_df[column].astype(dtype)
+        else:
+            combined_df[column] = combined_df[column].astype(dtype)
 
     return combined_df
