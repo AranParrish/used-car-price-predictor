@@ -65,12 +65,19 @@ def load_data(data_dir: Path) -> pd.DataFrame:
         combined_df.drop(columns=cols_to_drop, axis=1, inplace=True)
 
     # Drop invalid rows and cast columns to mapped types
+    invalid_rows_counters = 0
     for column, dtype in types_map.items():
         if dtype in ("int64", "float64"):
             combined_df[column] = pd.to_numeric(combined_df[column], errors="coerce")
+            invalid_rows_counters += combined_df.isna().any(axis=1).sum()
             combined_df = combined_df.dropna(subset=column)
             combined_df[column] = combined_df[column].astype(dtype)
         else:
             combined_df[column] = combined_df[column].astype(dtype)
+
+    if invalid_rows_counters > 0:
+        logger.warning(
+            f"Dropped {invalid_rows_counters} rows from combined dataset due to invalid value(s) in numeric columns"
+        )
 
     return combined_df

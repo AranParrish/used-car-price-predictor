@@ -76,9 +76,14 @@ class TestErrorHandling:
         assert f"No valid CSV files found at {invalid_path}" in str(excinfo.value)
 
     @pytest.mark.it("Removes invalid rows")
-    def test_remove_invalid_data(self, invalid_test_data):
-        df = load_data(invalid_test_data)
+    def test_remove_invalid_data(self, invalid_test_data, caplog):
+        with caplog.at_level("WARNING"):
+            df = load_data(invalid_test_data)
         assert df.isna().sum().sum() == 0
+        assert (
+            "Dropped 9 rows from combined dataset due to invalid value(s)"
+            in caplog.text
+        )
 
     @pytest.mark.it("Strips extra columns")
     def test_extra_columns_removed(self, invalid_test_data, expected_columns):
