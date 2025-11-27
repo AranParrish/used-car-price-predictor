@@ -1,0 +1,26 @@
+name: used-car-price-predictor
+
+on:
+    push:
+        branches:
+            - main
+    pull_request:
+        branches:
+            - main
+
+jobs:
+    run-all:
+        name: run-all
+        environment: dev
+        runs-on: ubuntu-latest
+        steps:
+            - name: Checkout Repo
+              uses: actions/checkout@v4
+            - name: Set Up Python
+              uses: actions/setup-python@v5
+              with:
+                python-version: '3.12'
+            - name: Install Make
+              run: sudo apt install make -y
+            - name: Run All Checks
+              run: make run-all
