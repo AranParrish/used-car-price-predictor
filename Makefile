@@ -57,3 +57,6 @@ check-coverage:
 
 ## Run all checks
 run-checks: security-test run-black unit-test check-coverage
+
+## Full build and run command for CI/CD runner
+run-all: dev-requirements run-checks
