@@ -38,9 +38,12 @@ dev-requirements: create-environment
 
 # Build / Run
 
-## Run the security test (bandit + safety)
-security-test:
+## Run the safety security test
+safety-test:
 	$(call execute_in_env, safety scan -r ./requirements-dev.txt)
+
+## Run the bandit security test
+bandit-test:
 	$(call execute_in_env, bandit -lll */*.py *c/*.py)
 
 ## Run the black code check
@@ -56,7 +59,7 @@ check-coverage:
 	$(call execute_in_env, PYTHONPATH=${CURDIR} pytest --cov=src test/)
 
 ## Run all checks
-run-checks: security-test run-black unit-test check-coverage
+run-checks: safety-test bandit-test run-black unit-test check-coverage
 
-## Full build and run command for CI/CD runner
-run-all: dev-requirements run-checks
+## Full build and run command for CI/CD runner (excluding safety as need separate GitHub Action for login)
+run-all: dev-requirements bandit-test run-black unit-test check-coverage
