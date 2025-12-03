@@ -36,6 +36,6 @@ venv/
 **/build/
 **/*egg*
 
-# Dev environment files
-requirements-dev*
+# Ignore dependency compile files
+requirements-dev.in
 requirements.in
