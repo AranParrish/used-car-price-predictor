@@ -1,30 +1,39 @@
-name: used-car-price-predictor
+name: Run all code checks
 
 on:
-    push:
-        branches:
-            - main
-    pull_request:
-        branches:
-            - main
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
 
 jobs:
-    run-all:
-        name: run-all
-        environment: dev
-        runs-on: ubuntu-latest
-        steps:
-            - name: Checkout Repo
-              uses: actions/checkout@v4
-            - name: Set Up Python
-              uses: actions/setup-python@v5
-              with:
-                python-version: '3.12'
-            - name: Install Make
-              run: sudo apt install make -y
-            - name: Safety Security Check
-              uses: pyupio/safety-action@v1
-              with:
-                api-key: ${{ secrets.SAFETY_API_KEY }}
-            - name: Run All Checks
-              run: make run-all
+  run-all:
+    name: Run all checks
+    environment: dev
+    runs-on: ubuntu-latest
+    
+    container:
+      image: ghcr.io/aranparrish/used-car-price-predictor-ci:latest
+      credentials:
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+
+    steps:
+      - name: Checkout Repo
+        uses: actions/checkout@v4
+
+      - name: Safety Security Check
+        uses: pyupio/safety-action@v1
+        with:
+          api-key: ${{ secrets.SAFETY_API_KEY }}
+
+      - name: Run Bandit
+        run: bandit -lll */*.py src/*.py
+
+      - name: Run Black
+        run: black ./src/*.py ./test/*.py
+
+      - name: Run Pytest with Coverage
+        run: PYTHONPATH=${PWD} pytest --cov=src --testdox -v
