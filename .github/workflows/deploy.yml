@@ -17,7 +17,7 @@ jobs:
         container:
           image: ghcr.io/aranparrish/used-car-price-predictor-ci:latest
           credentials:
-            username: aranparrish
+            username: ${{ github.actor }}
             password: ${{ secrets.GITHUB_TOKEN }}
 
         steps:
