@@ -17,17 +17,12 @@ jobs:
         container:
           image: ghcr.io/aranparrish/used-car-price-predictor-ci:latest
           credentials:
-            username: ${{ github.actor }}
+            username: aranparrish
             password: ${{ secrets.GITHUB_TOKEN }}
 
         steps:
             - name: Checkout Repo
               uses: actions/checkout@v4
-
-            - name: Set Up Python
-              uses: actions/setup-python@v5
-              with:
-                python-version: '3.12'
 
             - name: Safety Security Check
               uses: pyupio/safety-action@v1
