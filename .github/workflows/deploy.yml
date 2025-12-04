@@ -15,7 +15,7 @@ jobs:
         runs-on: ubuntu-latest
         
         container:
-          image: ghcr.io/aranparrish/used-car-price-predictor-ci:latest
+          image: ghcr.io/aranparrish/${{ github.repository }}-ci:latest
           credentials:
             username: ${{ github.actor }}
             password: ${{ secrets.GITHUB_TOKEN }}
