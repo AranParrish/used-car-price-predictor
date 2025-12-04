@@ -3,7 +3,7 @@ name: Run all code checks
 on:
   push:
     branches:
-        - main
+      - main
   pull_request:
     branches:
       - main
@@ -36,4 +36,4 @@ jobs:
         run: black ./src/*.py ./test/*.py
 
       - name: Run Pytest with Coverage
-        run: pytest --cov=src --testdox -v
+        run: PYTHONPATH=${PWD} pytest --cov=src --testdox -v
