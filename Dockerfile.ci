@@ -12,4 +12,4 @@ RUN pip install --no-cache-dir -r requirements-dev.txt
 COPY . .
 
 # Default command
-CMD ["pytest", "-v", "--testdox"]
+CMD ["pytest", "-vv", "--testdox"]
