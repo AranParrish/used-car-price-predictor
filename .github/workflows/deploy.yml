@@ -1,39 +1,39 @@
 name: Run all code checks
 
 on:
-    push:
-        branches:
-            - main
-    pull_request:
-        branches:
-            - main
+  push:
+    branches:
+        - main
+  pull_request:
+    branches:
+      - main
 
 jobs:
-    run-all:
-        name: Run all checks
-        environment: dev
-        runs-on: ubuntu-latest
-        
-        container:
-          image: ghcr.io/aranparrish/used-car-price-predictor-ci:latest
-          credentials:
-            username: ${{ github.actor }}
-            password: ${{ secrets.GITHUB_TOKEN }}
+  run-all:
+    name: Run all checks
+    environment: dev
+    runs-on: ubuntu-latest
+    
+    container:
+      image: ghcr.io/aranparrish/used-car-price-predictor-ci:latest
+      credentials:
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
 
-        steps:
-            - name: Checkout Repo
-              uses: actions/checkout@v4
+    steps:
+      - name: Checkout Repo
+        uses: actions/checkout@v4
 
-            - name: Safety Security Check
-              uses: pyupio/safety-action@v1
-              with:
-                api-key: ${{ secrets.SAFETY_API_KEY }}
+      - name: Safety Security Check
+        uses: pyupio/safety-action@v1
+        with:
+          api-key: ${{ secrets.SAFETY_API_KEY }}
 
-            - name: Run Bandit
-              run: bandit -lll */*.py src/*.py
+      - name: Run Bandit
+        run: bandit -lll */*.py src/*.py
 
-            - name: Run Black
-              run: black ./src/*.py ./test/*.py
+      - name: Run Black
+        run: black ./src/*.py ./test/*.py
 
-            - name: Run Pytest with Coverage
-              run: pytest --cov=src --testdox -v
+      - name: Run Pytest with Coverage
+        run: pytest --cov=src --testdox -v
