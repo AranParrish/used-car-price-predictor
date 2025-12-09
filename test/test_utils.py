@@ -41,7 +41,7 @@ class TestTrainTestSplit:
         assert len(X_train) == expected_train_size
         assert len(y_train) == expected_train_size
         assert len(X_test) == expected_test_size
-        assert len(y_train) == expected_train_size
+        assert len(y_test) == expected_test_size
 
 
 @pytest.mark.describe("Train / Test exception handling")
@@ -60,12 +60,17 @@ class TestTrainTestExceptions:
             train_test_datasets(cleansed_df, target_col="invalid")
         assert "Target column not in input dataset" in str(excinfo.value)
 
-    @pytest.mark.it("Raises TypeError if dataframe does not contain features")
+    @pytest.mark.it(
+        "Raises TypeError if dataframe does not contain at least one feature and one target"
+    )
     def test_df_without_features(self, cleansed_df):
         invalid_df = cleansed_df[["price"]]
         with pytest.raises(TypeError) as excinfo:
             train_test_datasets(invalid_df, target_col="price")
-        assert "Dataframe does not contain any features" in str(excinfo.value)
+        assert (
+            "Dataframe must contain at least one feature column and one target column"
+            in str(excinfo.value)
+        )
 
     @pytest.mark.it("Raises ValueError if given invalid test size proportion")
     def test_invalid_test_size_float(self, cleansed_df):

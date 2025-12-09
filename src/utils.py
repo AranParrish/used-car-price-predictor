@@ -37,7 +37,9 @@ def train_test_datasets(
         raise TypeError("Input dataset must be a pandas dataframe")
 
     if len(df.columns) < 2:
-        raise TypeError("Dataframe does not contain any features")
+        raise TypeError(
+            "Dataframe must contain at least one feature column and one target column"
+        )
 
     if isinstance(test_size, float) and (test_size < 0.0 or test_size > 1.0):
         raise ValueError(
