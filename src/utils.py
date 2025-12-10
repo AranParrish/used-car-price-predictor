@@ -3,6 +3,30 @@ from sklearn.model_selection import train_test_split
 from numpy.random import RandomState
 
 
+def preprocessing(df: pd.DataFrame) -> pd.DataFrame:
+    """
+    Function to preprocess a dataframe before being used for ML models.
+
+    Encodes categorical columns and returns a fully numeric dataframe.
+
+    Args:
+        df - a cleaned dataframe without any invalid row values.
+
+    Returns:
+        A fully numeric dataframe, suitable for use with ML models.
+
+    Raises:
+        TypeError if input is not a pandas dataframe.
+    """
+    if not isinstance(df, pd.DataFrame):
+        raise TypeError("Input must be a pandas dataframe")
+
+    processed_df = df.copy(deep=True)
+    cat_cols = processed_df.select_dtypes(include=["object", "string"]).columns
+    processed_df = pd.get_dummies(processed_df, columns=cat_cols, drop_first=True)
+    return processed_df
+
+
 def train_test_datasets(
     df: pd.DataFrame,
     target_col: str,

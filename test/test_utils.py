@@ -1,13 +1,50 @@
 import pytest
 import pandas as pd
 from pathlib import Path
-from src.utils import train_test_datasets
+from src.utils import train_test_datasets, preprocessing
 from src.data_loader import load_data
 
 
 @pytest.fixture(scope="function")
 def cleansed_df():
     return load_data(Path("data/valid_test_data/"))
+
+
+@pytest.mark.describe("Preprocessing function tests")
+class TestPreprocessing:
+
+    @pytest.mark.it("Input is not mutated")
+    def test_input_not_mutated(self, cleansed_df):
+        copy_df = cleansed_df.copy(deep=True)
+        preprocessing(cleansed_df)
+        pd.testing.assert_frame_equal(cleansed_df, copy_df)
+
+    @pytest.mark.it("Returns a new dataframe")
+    def test_returns_new_dataframe(self, cleansed_df):
+        output = preprocessing(cleansed_df)
+        assert isinstance(output, pd.DataFrame)
+        assert output is not cleansed_df
+
+    @pytest.mark.it("Removes categorical columns")
+    def test_removes_categorical_columns(self, cleansed_df):
+        output = preprocessing(cleansed_df)
+        assert output.select_dtypes(include=["object", "string"]).empty
+
+    @pytest.mark.it("Dataset with no categorical columns returned unchanged")
+    def test_no_categorical_returned(self, cleansed_df):
+        numeric_only = cleansed_df[["price"]]
+        output = preprocessing(numeric_only)
+        pd.testing.assert_frame_equal(output, numeric_only)
+
+
+@pytest.mark.describe("Preprocessing exception handling")
+class TestPreprocessingExceptions:
+
+    @pytest.mark.it("Raises TypeError if input is not a dataframe")
+    def test_typeerror_not_a_dataframe(self):
+        with pytest.raises(TypeError) as excinfo:
+            preprocessing("not a dataframe")
+        assert "Input must be a pandas dataframe" in str(excinfo.value)
 
 
 @pytest.mark.describe("Train / Test function tests")
