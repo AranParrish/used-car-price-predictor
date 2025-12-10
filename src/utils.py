@@ -1,4 +1,5 @@
 import pandas as pd
+import torch
 from sklearn.model_selection import train_test_split
 from numpy.random import RandomState
 
@@ -23,7 +24,9 @@ def preprocessing(df: pd.DataFrame) -> pd.DataFrame:
 
     processed_df = df.copy(deep=True)
     cat_cols = processed_df.select_dtypes(include=["object", "string"]).columns
-    processed_df = pd.get_dummies(processed_df, columns=cat_cols, drop_first=True)
+    processed_df = pd.get_dummies(
+        processed_df, columns=cat_cols, drop_first=True, dtype="int32"
+    )
     return processed_df
 
 
@@ -61,7 +64,7 @@ def train_test_datasets(
     if not isinstance(df, pd.DataFrame):
         raise TypeError("Input dataset must be a pandas dataframe")
 
-    if not df.select_dtypes(include=["object", "string"]).empty:
+    if not df.select_dtypes(include=["object", "string", "boolean"]).empty:
         raise TypeError("Input dataframe must not contain non-numeric columns")
 
     if len(df.columns) < 2:
@@ -95,3 +98,26 @@ def train_test_datasets(
         X, y, test_size=test_size, random_state=random_seed
     )
     return X_train, X_test, y_train, y_test
+
+
+def tensor_converter(X: pd.DataFrame, y: pd.DataFrame) -> tuple:
+    """
+    Function to convert training datasets into torch tensors for use in a PyTorch model.
+
+    Args:
+        X - Numeric pandas dataframe of input features data.
+        y - Numeric pandas dataframe of target features data.
+
+    Returns:
+        Two tensor datasets as a tuple.
+
+    Raises:
+        TypeError if:
+            - either input is not a pandas dataframe
+            - either input contains non-numeric values
+            - the length of the inputs do not match
+    """
+    X_tensor = torch.tensor(X.values, dtype=torch.float32)
+    y_tensor = torch.tensor(y.values, dtype=torch.float32)
+
+    return X_tensor, y_tensor
