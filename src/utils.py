@@ -37,7 +37,7 @@ def train_test_datasets(
     Function to split given dataset into test and training sets for machine learning models
 
     Args:
-        df - Pandas dataframe containing full dataset (features and target)
+        df - Numeric pandas dataframe containing full dataset (features and target)
         target_col - String name of the target column (i.e. y values, all remaining columns used as features)
         test_size - Proportion of data to use as test set, remaining data used for training set.
                     Can be given as a proportion (between 0.0 and 1.0) or absolute integer number of samples.
@@ -50,6 +50,7 @@ def train_test_datasets(
     Raises:
         TypeError if:
             - input data is not a pandas dataframe
+            - input data contains non-numeric columns
             - input data does not contain any features
             - the random_seed is not an integer
         ValueError if:
@@ -59,6 +60,9 @@ def train_test_datasets(
     """
     if not isinstance(df, pd.DataFrame):
         raise TypeError("Input dataset must be a pandas dataframe")
+
+    if not df.select_dtypes(include=["object", "string"]).empty:
+        raise TypeError("Input dataframe must not contain non-numeric columns")
 
     if len(df.columns) < 2:
         raise TypeError(
