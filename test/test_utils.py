@@ -166,7 +166,7 @@ class TestTrainTestExceptions:
         )
 
 
-@pytest.mark.describe("Tensor convertor function tests")
+@pytest.mark.describe("Tensor converter function tests")
 class TestTensorConverter:
 
     @pytest.mark.it("Inputs are not mutated")
@@ -185,3 +185,29 @@ class TestTensorConverter:
         X_tensor, y_tensor = tensor_converter(X_train, y_train)
         assert isinstance(X_tensor, torch.Tensor)
         assert isinstance(y_tensor, torch.Tensor)
+
+
+@pytest.mark.describe("Tensor converter exception handling")
+class TestTensorConverterExceptions:
+
+    @pytest.mark.it("Raises TypeError if either input is not a dataframe")
+    def test_typeerror_input_not_dataframe(self):
+        with pytest.raises(TypeError) as excinfo:
+            tensor_converter("not a dataframe", "not a dataframe")
+        assert "Inputs must both be a pandas dataframe" in str(excinfo.value)
+
+    @pytest.mark.it("Raises TypeError if either input contains non-numeric data")
+    def test_typeerror_non_numeric_cols(self, cleansed_df):
+        X = cleansed_df.drop(columns="price", axis=1)
+        y = cleansed_df[["price"]]
+        with pytest.raises(TypeError) as excinfo:
+            tensor_converter(X, y)
+        assert "Inputs must not contain non-numeric values" in str(excinfo.value)
+
+    @pytest.mark.it("Raises ValueError if inputs differ in length")
+    def test_valueerror_differing_length_inputs(self, processed_training_data):
+        X, _, y, _ = processed_training_data
+        y = y.head()
+        with pytest.raises(ValueError) as excinfo:
+            tensor_converter(X, y)
+        assert "X and y lengths must match" in str(excinfo.value)

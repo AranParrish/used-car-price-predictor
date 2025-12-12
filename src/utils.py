@@ -102,7 +102,7 @@ def train_test_datasets(
 
 def tensor_converter(X: pd.DataFrame, y: pd.DataFrame) -> tuple:
     """
-    Function to convert training datasets into torch tensors for use in a PyTorch model.
+    Function to convert training or testing datasets into torch tensors for use in a PyTorch model.
 
     Args:
         X - Numeric pandas dataframe of input features data.
@@ -115,8 +115,20 @@ def tensor_converter(X: pd.DataFrame, y: pd.DataFrame) -> tuple:
         TypeError if:
             - either input is not a pandas dataframe
             - either input contains non-numeric values
-            - the length of the inputs do not match
+        ValueError if the length of the inputs do not match
     """
+    if not isinstance(X, pd.DataFrame) or not isinstance(y, pd.DataFrame):
+        raise TypeError("Inputs must both be a pandas dataframe")
+
+    if (
+        not X.select_dtypes(include=["object", "string"]).empty
+        or not y.select_dtypes(include=["object", "string"]).empty
+    ):
+        raise TypeError("Inputs must not contain non-numeric values")
+
+    if len(X) != len(y):
+        raise ValueError("X and y lengths must match")
+
     X_tensor = torch.tensor(X.values, dtype=torch.float32)
     y_tensor = torch.tensor(y.values, dtype=torch.float32)
 
