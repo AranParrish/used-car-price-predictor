@@ -38,6 +38,15 @@ class TestCreateNNModel:
         output = model(test_input)
         assert output.shape == (1, 1)
 
+    @pytest.mark.it("Model contains expected number of layers")
+    def test_no_layers(self):
+        model = create_nn_model(input_dim=10)
+        layer_count = 0
+        for module in model.modules():
+            if isinstance(module, nn.Linear):
+                layer_count += 1
+        assert layer_count == 3
+
 
 @pytest.mark.describe("Train NN model function tests")
 class TestTrainNNModel:
