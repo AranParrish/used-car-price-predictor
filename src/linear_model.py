@@ -17,7 +17,7 @@ def linear_reg_model(X_train: pd.DataFrame, y_train: pd.DataFrame) -> LinearRegr
         TypeError if:
             - Either input is not a pandas dataframe
             - Either input contains non-numeric values
-            - The length of the inputs do not match
+        ValueError if the length of the inputs do not match
     """
     if not isinstance(X_train, pd.DataFrame) or not isinstance(y_train, pd.DataFrame):
         raise TypeError("Inputs must both be a pandas dataframe")
@@ -26,7 +26,7 @@ def linear_reg_model(X_train: pd.DataFrame, y_train: pd.DataFrame) -> LinearRegr
         not X_train.select_dtypes(include=["object", "string"]).empty
         or not y_train.select_dtypes(include=["object", "string"]).empty
     ):
-        raise TypeError("Inputs must not contain non-numeric values.")
+        raise TypeError("Inputs must not contain non-numeric values")
 
     if len(X_train) != len(y_train):
         raise ValueError("X_train and y_train lengths must match")
