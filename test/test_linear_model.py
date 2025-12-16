@@ -5,14 +5,14 @@ from sklearn.model_selection import train_test_split
 from pathlib import Path
 from src.linear_model import linear_reg_model
 from src.data_loader import load_data
-from src.utils import train_test_datasets, preprocessing
+from src.utils import linear_train_test_datasets, linear_preprocessing
 
 
 @pytest.fixture(scope="function")
 def valid_training_data():
     df = load_data(Path("data/valid_test_data/"))
-    processed_df = preprocessing(df)
-    X_train, X_test, y_train, y_test = train_test_datasets(
+    processed_df = linear_preprocessing(df)
+    X_train, X_test, y_train, y_test = linear_train_test_datasets(
         processed_df, target_col="price"
     )
     return X_train, X_test, y_train, y_test

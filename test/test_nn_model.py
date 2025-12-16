@@ -3,15 +3,17 @@ import pandas as pd
 import torch.nn as nn
 from pathlib import Path
 from src.nn_model import create_nn_model, train_nn_model
-from src.utils import preprocessing, train_test_datasets, tensor_converter
+from src.utils import linear_preprocessing, linear_train_test_datasets, tensor_converter
 from src.data_loader import load_data
 
 
 @pytest.fixture(scope="function")
 def training_data():
     cleansed_df = load_data(Path("data/valid_test_data/"))
-    preprocessed_df = preprocessing(cleansed_df)
-    X_train, _, y_train, _ = train_test_datasets(preprocessed_df, target_col="price")
+    preprocessed_df = linear_preprocessing(cleansed_df)
+    X_train, _, y_train, _ = linear_train_test_datasets(
+        preprocessed_df, target_col="price"
+    )
     X_train_tensor, y_train_tensor = tensor_converter(X_train, y_train)
     return X_train_tensor, y_train_tensor
 

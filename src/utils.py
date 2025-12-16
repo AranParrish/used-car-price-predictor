@@ -4,11 +4,11 @@ from sklearn.model_selection import train_test_split
 from numpy.random import RandomState
 
 
-def preprocessing(df: pd.DataFrame) -> pd.DataFrame:
+def linear_preprocessing(df: pd.DataFrame) -> pd.DataFrame:
     """
-    Function to preprocess a dataframe before being used for ML models.
+    Function to preprocess a dataframe before being used for linear regression ML models.
 
-    Encodes categorical columns and returns a fully numeric dataframe.
+    Applies "one hot encoding" to categorical columns and returns a fully numeric dataframe.
 
     Args:
         df - a cleaned dataframe without any invalid row values.
@@ -30,14 +30,14 @@ def preprocessing(df: pd.DataFrame) -> pd.DataFrame:
     return processed_df
 
 
-def train_test_datasets(
+def linear_train_test_datasets(
     df: pd.DataFrame,
     target_col: str,
     test_size: int | float = 0.2,
     random_seed: RandomState | int = 42,
 ) -> tuple:
     """
-    Function to split given dataset into test and training sets for machine learning models
+    Function to split given dataset into test and training sets for linear regression ML models
 
     Args:
         df - Numeric pandas dataframe containing full dataset (features and target)
