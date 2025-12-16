@@ -72,12 +72,12 @@ def train_test_datasets(
             "Dataframe must contain at least one feature column and one target column"
         )
 
-    if isinstance(test_size, float) and (test_size < 0.0 or test_size > 1.0):
+    if isinstance(test_size, float) and not 0.0 <= test_size <= 1.0:
         raise ValueError(
             "test_size must be a float between 0.0 and 1.0 or an integer number of samples"
         )
 
-    if isinstance(test_size, int) and (test_size < 0 or test_size > len(df)):
+    if isinstance(test_size, int) and not 0 <= test_size <= len(df):
         raise ValueError(
             "test_size must be a float between 0.0 and 1.0 or an integer number of samples"
         )
@@ -85,7 +85,7 @@ def train_test_datasets(
     if not isinstance(random_seed, (int, RandomState)):
         raise TypeError("random_seed must be an integer or numpy RandomState instance")
 
-    if isinstance(random_seed, int) and (random_seed < 0 or random_seed > (2**32 - 1)):
+    if isinstance(random_seed, int) and not 0 <= random_seed <= 2**32 - 1:
         raise ValueError("random_seed must be an integer in the range [0, 2**32 - 1]")
 
     try:
@@ -117,7 +117,7 @@ def tensor_converter(X: pd.DataFrame, y: pd.DataFrame) -> tuple:
             - either input contains non-numeric values
         ValueError if the length of the inputs do not match
     """
-    if not isinstance(X, pd.DataFrame) or not isinstance(y, pd.DataFrame):
+    if not all(isinstance(data, pd.DataFrame) for data in (X, y)):
         raise TypeError("Inputs must both be a pandas dataframe")
 
     if (
