@@ -100,6 +100,40 @@ def linear_train_test_datasets(
     return X_train, X_test, y_train, y_test
 
 
+def embeddings_preprocessing(df: pd.DataFrame, target_col: str) -> tuple:
+    """
+    Function to preprocess a dataframe being used for a PyTorch Neural Network ML model.
+
+    Builds embeddings layers for categorical columns.
+
+    Args:
+        df - a cleaned dataframe without any invalid row values.
+        target_col - name of column containing target values.
+
+    Returns:
+        A tuple containing a dataframe of numerical features, a dataframe of categorical features,
+        a dataframe containing target values, and a dictionary of mappings for the categorical features.
+
+    Raises:
+        TypeError if input data is not a pandas dataframe.
+
+    """
+    y = df[[target_col]].reset_index(drop=True)
+    X = df.drop(columns=target_col)
+    num_cols = X.select_dtypes(include=["number"]).columns
+    cat_cols = X.select_dtypes(include=["object", "string", "boolean"]).columns
+    X_num = X[num_cols].reset_index(drop=True)
+    X_cat = pd.DataFrame()
+    mappings = {}
+
+    for col in cat_cols:
+        cat_series = X[col].astype("category")
+        X_cat[col] = cat_series.cat.codes
+        mappings[col] = dict(enumerate(cat_series.cat.categories))
+
+    return X_num, X_cat, y, mappings
+
+
 def tensor_converter(X: pd.DataFrame, y: pd.DataFrame) -> tuple:
     """
     Function to convert training or testing datasets into torch tensors for use in a PyTorch model.

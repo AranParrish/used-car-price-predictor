@@ -1,7 +1,12 @@
 import pytest, torch
 import pandas as pd
 from pathlib import Path
-from src.utils import linear_train_test_datasets, linear_preprocessing, tensor_converter
+from src.utils import (
+    linear_train_test_datasets,
+    linear_preprocessing,
+    embeddings_preprocessing,
+    tensor_converter,
+)
 from src.data_loader import load_data
 
 
@@ -166,6 +171,38 @@ class TestLinearTrainTestExceptions:
         assert "random_seed must be an integer in the range [0, 2**32 - 1]" in str(
             excinfo.value
         )
+
+
+@pytest.mark.describe("Embeddings preprocessing function tests")
+class TestEmbeddingsPreprocessing:
+
+    @pytest.mark.it("Inputs are not mutated")
+    def test_inputs_not_mutated(self, cleansed_df):
+        copy_df = cleansed_df.copy(deep=True)
+        embeddings_preprocessing(cleansed_df, target_col="price")
+        pd.testing.assert_frame_equal(copy_df, cleansed_df)
+
+    @pytest.mark.it("Output is expected structure")
+    def test_output_expected_structure(self, cleansed_df):
+        X_num, X_cat, y, mappings = embeddings_preprocessing(
+            cleansed_df, target_col="price"
+        )
+        assert isinstance(X_num, pd.DataFrame)
+        assert isinstance(X_cat, pd.DataFrame)
+        assert isinstance(y, pd.DataFrame)
+        assert isinstance(mappings, dict)
+
+    @pytest.mark.it("Categorical columns are encoded")
+    def test_cat_cols_encoded(self, cleansed_df):
+        _, X_cat, _, _ = embeddings_preprocessing(cleansed_df, target_col="price")
+        assert X_cat.select_dtypes(include=["object", "string", "boolean"]).empty
+
+    @pytest.mark.it("Numeric columns are unchanged")
+    def test_num_cols_unchanged(self, cleansed_df):
+        features_df = cleansed_df.drop(columns="price")
+        num_cols = features_df.select_dtypes(include=["number"])
+        X_num, _, _, _ = embeddings_preprocessing(cleansed_df, target_col="price")
+        pd.testing.assert_frame_equal(X_num, num_cols)
 
 
 @pytest.mark.describe("Tensor converter function tests")
