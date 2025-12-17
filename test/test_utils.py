@@ -21,7 +21,7 @@ def processed_training_data(processed_df):
 
 
 @pytest.mark.describe("linear_preprocessing function tests")
-class Testlinear_preprocessing:
+class TestLinearPreprocessing:
 
     @pytest.mark.it("Input is not mutated")
     def test_input_not_mutated(self, cleansed_df):
@@ -48,7 +48,7 @@ class Testlinear_preprocessing:
 
 
 @pytest.mark.describe("linear_preprocessing exception handling")
-class Testlinear_preprocessingExceptions:
+class TestLinearPreprocessingExceptions:
 
     @pytest.mark.it("Raises TypeError if input is not a dataframe")
     def test_typeerror_not_a_dataframe(self):
