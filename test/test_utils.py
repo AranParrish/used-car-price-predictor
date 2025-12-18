@@ -205,6 +205,31 @@ class TestEmbeddingsPreprocessing:
         pd.testing.assert_frame_equal(X_num, num_cols)
 
 
+@pytest.mark.describe("Embeddings Preprocessing Exception Handling")
+class TestEmbeddingsPreprocessingExceptions:
+
+    @pytest.mark.it("Raises TypeError if input data is not a dataframe")
+    def test_typeerror_input_data_not_a_df(self):
+        with pytest.raises(TypeError) as excinfo:
+            embeddings_preprocessing("not a dataframe", target_col="price")
+        assert "Input data must be a pandas dataframe" in str(excinfo.value)
+
+    @pytest.mark.it("Raises ValueError if target column is not in data")
+    def test_valueerror_target_col_not_in_data(self, cleansed_df):
+        with pytest.raises(ValueError) as excinfo:
+            embeddings_preprocessing(cleansed_df, target_col=2)
+        assert "Target column not found in input data" in str(excinfo.value)
+
+    @pytest.mark.it("Raises ValueError if input data contains invalid rows")
+    def test_valueerror_for_invalid_rows(self):
+        invalid_data = Path("data/invalid_test_data/ford.csv")
+        df = pd.read_csv(invalid_data)
+        df["brand"] = "Ford"
+        with pytest.raises(ValueError) as excinfo:
+            embeddings_preprocessing(df, target_col="price")
+        assert "Input data contains invalid rows" in str(excinfo.value)
+
+
 @pytest.mark.describe("Tensor converter function tests")
 class TestTensorConverter:
 

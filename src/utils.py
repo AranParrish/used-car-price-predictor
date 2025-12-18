@@ -2,6 +2,7 @@ import pandas as pd
 import torch
 from sklearn.model_selection import train_test_split
 from numpy.random import RandomState
+from datetime import datetime
 
 
 def linear_preprocessing(df: pd.DataFrame) -> pd.DataFrame:
@@ -32,7 +33,7 @@ def linear_preprocessing(df: pd.DataFrame) -> pd.DataFrame:
 
 def linear_train_test_datasets(
     df: pd.DataFrame,
-    target_col: str,
+    target_col: str | int | float | tuple | datetime,
     test_size: int | float = 0.2,
     random_seed: RandomState | int = 42,
 ) -> tuple:
@@ -100,7 +101,9 @@ def linear_train_test_datasets(
     return X_train, X_test, y_train, y_test
 
 
-def embeddings_preprocessing(df: pd.DataFrame, target_col: str) -> tuple:
+def embeddings_preprocessing(
+    df: pd.DataFrame, target_col: str | int | float | datetime | tuple
+) -> tuple:
     """
     Function to preprocess a dataframe being used for a PyTorch Neural Network ML model.
 
@@ -116,8 +119,19 @@ def embeddings_preprocessing(df: pd.DataFrame, target_col: str) -> tuple:
 
     Raises:
         TypeError if input data is not a pandas dataframe.
+        ValueError if target_col is not found in the input data.
+        ValueError if input data contains invalid rows (e.g. NA values).
 
     """
+    if not isinstance(df, pd.DataFrame):
+        raise TypeError("Input data must be a pandas dataframe")
+
+    if target_col not in df.columns:
+        raise ValueError("Target column not found in input data")
+
+    if df.isna().values.any():
+        raise ValueError("Input data contains invalid rows")
+
     y = df[[target_col]].reset_index(drop=True)
     X = df.drop(columns=target_col)
     num_cols = X.select_dtypes(include=["number"]).columns
