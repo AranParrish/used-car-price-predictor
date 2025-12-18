@@ -152,36 +152,51 @@ def embeddings_preprocessing(
     return X_num, X_cat, y, mappings
 
 
-def tensor_converter(X: pd.DataFrame, y: pd.DataFrame) -> tuple:
+def split_and_tensorise(
+    X_num: pd.DataFrame,
+    X_cat: pd.DataFrame,
+    y: pd.DataFrame,
+    test_size: int | float = 0.2,
+    random_seed: RandomState | int = 42,
+) -> tuple:
     """
-    Function to convert training or testing datasets into torch tensors for use in a PyTorch model.
+    Function to create training and testing datasets as torch tensors for use in a PyTorch model.
 
     Args:
-        X - Numeric pandas dataframe of input features data.
-        y - Numeric pandas dataframe of target features data.
+        X_num - Pandas dataframe of numerical features data.
+        X_cat - Pandas dataframe of categorical features data (as an embeddings layer).
+        y - Pandas dataframe of target feature data.
 
     Returns:
-        Two tensor datasets as a tuple.
+        A tuple containing six datasets (training and testing sets for X_num, X_cat, and y).
 
     Raises:
         TypeError if:
-            - either input is not a pandas dataframe
-            - either input contains non-numeric values
+            - any input is not a pandas dataframe
+            - any input contains non-numeric values
         ValueError if the length of the inputs do not match
     """
-    if not all(isinstance(data, pd.DataFrame) for data in (X, y)):
-        raise TypeError("Inputs must both be a pandas dataframe")
+    # if not all(isinstance(data, pd.DataFrame) for data in (X_num, X_cat, y)):
+    #     raise TypeError("Input data must all be a pandas dataframe")
 
-    if (
-        not X.select_dtypes(include=["object", "string"]).empty
-        or not y.select_dtypes(include=["object", "string"]).empty
-    ):
-        raise TypeError("Inputs must not contain non-numeric values")
+    # if (
+    #     not X.select_dtypes(include=["object", "string"]).empty
+    #     or not y.select_dtypes(include=["object", "string"]).empty
+    # ):
+    #     raise TypeError("Inputs must not contain non-numeric values")
 
-    if len(X) != len(y):
-        raise ValueError("X and y lengths must match")
+    # if len(X) != len(y):
+    #     raise ValueError("X and y lengths must match")
 
-    X_tensor = torch.tensor(X.values, dtype=torch.float32)
-    y_tensor = torch.tensor(y.values, dtype=torch.float32)
+    X_num_train, X_num_test, X_cat_train, X_cat_test, y_train, y_test = (
+        train_test_split(X_num, X_cat, y, test_size=test_size, random_state=random_seed)
+    )
 
-    return X_tensor, y_tensor
+    return (
+        torch.tensor(X_num_train.values, dtype=torch.float32),
+        torch.tensor(X_num_test.values, dtype=torch.float32),
+        torch.tensor(X_cat_train.values, dtype=torch.long),
+        torch.tensor(X_cat_test.values, dtype=torch.long),
+        torch.tensor(y_train.values, dtype=torch.float32),
+        torch.tensor(y_test.values, dtype=torch.float32),
+    )
