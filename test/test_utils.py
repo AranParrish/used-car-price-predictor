@@ -55,11 +55,20 @@ class TestLinearPreprocessing:
 @pytest.mark.describe("linear_preprocessing exception handling")
 class TestLinearPreprocessingExceptions:
 
-    @pytest.mark.it("Raises TypeError if input is not a dataframe")
+    @pytest.mark.it("Raises TypeError if input data is not a dataframe")
     def test_typeerror_not_a_dataframe(self):
         with pytest.raises(TypeError) as excinfo:
             linear_preprocessing("not a dataframe")
         assert "Input must be a pandas dataframe" in str(excinfo.value)
+
+    @pytest.mark.it("Raises ValueError if input data contains invalid rows")
+    def test_valueerror_invalid_rows(self):
+        invalid_data = Path("data/invalid_test_data/ford.csv")
+        df = pd.read_csv(invalid_data)
+        df["brand"] = "Ford"
+        with pytest.raises(ValueError) as excinfo:
+            linear_preprocessing(df)
+        assert "Input data contains invalid rows" in str(excinfo.value)
 
 
 @pytest.mark.describe("Linear Train / Test function tests")

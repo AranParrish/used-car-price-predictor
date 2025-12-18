@@ -18,10 +18,14 @@ def linear_preprocessing(df: pd.DataFrame) -> pd.DataFrame:
         A fully numeric dataframe, suitable for use with ML models.
 
     Raises:
-        TypeError if input is not a pandas dataframe.
+        TypeError if input data is not a pandas dataframe.
+        ValueError if input data contains invalid rows.
     """
     if not isinstance(df, pd.DataFrame):
         raise TypeError("Input must be a pandas dataframe")
+
+    if df.isna().values.any():
+        raise ValueError("Input data contains invalid rows")
 
     processed_df = df.copy(deep=True)
     cat_cols = processed_df.select_dtypes(include=["object", "string"]).columns
