@@ -42,7 +42,7 @@ def load_data(data_dir: Path) -> pd.DataFrame:
         if "tax(£)" in df.columns:
             df.rename(columns={"tax(£)": "tax"}, inplace=True)
         # Check all required columns are present, otherwise skip and warn user
-        if set(types_map.keys() - {"brand"}).issubset(set(df.columns)):
+        if (set(types_map) - {"brand"}).issubset(df.columns):
             df["brand"] = brand
             dfs[brand] = df
         else:
