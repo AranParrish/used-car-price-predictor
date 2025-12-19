@@ -2,7 +2,7 @@ from sklearn.linear_model import LinearRegression
 import pandas as pd
 
 
-def linear_reg_model(X_train: pd.DataFrame, y_train: pd.DataFrame) -> LinearRegression:
+def linear_reg_model(X_train: pd.DataFrame, y_train: pd.Series) -> LinearRegression:
     """
     Function to create a linear regression model trained on the input data.
 
@@ -15,21 +15,22 @@ def linear_reg_model(X_train: pd.DataFrame, y_train: pd.DataFrame) -> LinearRegr
 
     Raises:
         TypeError if:
-            - Either input is not a pandas dataframe
-            - Either input contains non-numeric values
-        ValueError if the length of the inputs do not match
+            - X_train is not a pandas dataframe
+            - y_train is not a pandas series
+        ValueError if:
+            - either input contains non-numeric values
     """
-    training_data = X_train, y_train
-    if not all(isinstance(item, pd.DataFrame) for item in training_data):
-        raise TypeError("Inputs must both be a pandas dataframe")
+    if not isinstance(X_train, pd.DataFrame):
+        raise TypeError("X_train must be a pandas dataframe")
 
-    if not all(
-        item.select_dtypes(include=["object", "string"]).empty for item in training_data
-    ):
-        raise TypeError("Inputs must not contain non-numeric values")
+    if not isinstance(y_train, pd.Series):
+        raise TypeError("y_train must be a pandas series")
 
-    if len(X_train) != len(y_train):
-        raise ValueError("X_train and y_train lengths must match")
+    if not X_train.select_dtypes(exclude=["number"]).empty:
+        raise ValueError("X_train must only contain numeric values")
+
+    if not pd.api.types.is_numeric_dtype(y_train):
+        raise ValueError("y_train must only contain numeric values")
 
     model = LinearRegression()
     model.fit(X_train, y_train)
