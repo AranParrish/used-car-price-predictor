@@ -12,10 +12,7 @@ from src.utils import linear_train_test_datasets, linear_preprocessing
 def valid_training_data():
     df = load_data(Path("data/valid_test_data/"))
     processed_df = linear_preprocessing(df)
-    X_train, X_test, y_train, y_test = linear_train_test_datasets(
-        processed_df, target_col="price"
-    )
-    return X_train, X_test, y_train, y_test
+    return linear_train_test_datasets(processed_df, target_col="price")
 
 
 @pytest.mark.describe("Linear regression model function tests")
