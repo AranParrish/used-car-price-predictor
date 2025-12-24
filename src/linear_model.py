@@ -15,14 +15,14 @@ def linear_reg_model(X_train: pd.DataFrame, y_train: pd.Series) -> LinearRegress
 
     Raises:
         TypeError if:
-            - X_train is not a pandas Dataframe
+            - X_train is not a pandas DataFrame
             - y_train is not a pandas Series
         ValueError if:
             - either input contains non-numeric values
             - either input contains missing values
     """
     if not isinstance(X_train, pd.DataFrame):
-        raise TypeError("X_train must be a pandas Dataframe")
+        raise TypeError("X_train must be a pandas DataFrame")
 
     if not isinstance(y_train, pd.Series):
         raise TypeError("y_train must be a pandas Series")
@@ -33,11 +33,8 @@ def linear_reg_model(X_train: pd.DataFrame, y_train: pd.Series) -> LinearRegress
     if not pd.api.types.is_numeric_dtype(y_train):
         raise ValueError("y_train must only contain numeric values")
 
-    if X_train.isna().any().any():
-        raise ValueError("X_train must not contain missing values")
-
-    if y_train.isna().any().any():
-        raise ValueError("y_train must not contain missing values")
+    if any(data.isna().any().any() for data in (X_train, y_train)):
+        raise ValueError("Input data must not contain missing values")
 
     model = LinearRegression()
     model.fit(X_train, y_train)

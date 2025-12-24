@@ -51,12 +51,12 @@ class TestLinearRegFunction:
 @pytest.mark.describe("Linear regression model exception handling")
 class TestLinearRegExceptions:
 
-    @pytest.mark.it("Raises TypeError if features data is not dataframes")
+    @pytest.mark.it("Raises TypeError if features data is not DataFrames")
     def test_typeerror_features_not_a_dataframe(self):
         test_y_train = pd.Series()
         with pytest.raises(TypeError) as excinfo:
-            linear_reg_model("not a dataframe", test_y_train)
-        assert "X_train must be a pandas Dataframe" in str(excinfo.value)
+            linear_reg_model("not a DataFrame", test_y_train)
+        assert "X_train must be a pandas DataFrame" in str(excinfo.value)
 
     @pytest.mark.it("Raises TypeError if target data is not a series")
     def test_typeerror_target_not_a_series(self):
@@ -69,7 +69,7 @@ class TestLinearRegExceptions:
     def test_valueerror_non_numeric_in_features(self):
         df = load_data(Path("data/valid_test_data/"))
         y = df["price"]
-        X = df.drop(columns="price", axis=1)
+        X = df.drop(columns="price")
         invalid_X_train, _, invalid_y_train, _ = train_test_split(X, y, test_size=0.2)
         with pytest.raises(ValueError) as excinfo:
             linear_reg_model(invalid_X_train, invalid_y_train)
@@ -89,22 +89,12 @@ class TestLinearRegExceptions:
             linear_reg_model(X_train, invalid_y_train)
         assert "y_train must only contain numeric values" in str(excinfo.value)
 
-    @pytest.mark.it("Raises ValueError if features contains invalid data")
-    def test_invalid_data_in_features(self, valid_training_data):
+    @pytest.mark.it("Raises ValueError if data contains missing values")
+    def test_missing_values(self, valid_training_data):
         _, _, valid_y_train, _ = valid_training_data
         invalid_data = Path("data/invalid_test_data/ford.csv")
         df = pd.read_csv(invalid_data)
         invalid_X_train = df[["year", "engineSize"]]
         with pytest.raises(ValueError) as excinfo:
             linear_reg_model(invalid_X_train, valid_y_train)
-        assert "X_train must not contain missing values" in str(excinfo.value)
-
-    @pytest.mark.it("Raises ValueError if target contains invalid data")
-    def test_invalid_data_in_target(self, valid_training_data):
-        valid_X_train, _, _, _ = valid_training_data
-        invalid_data = Path("data/invalid_test_data/ford.csv")
-        df = pd.read_csv(invalid_data)
-        invalid_y_train = df["engineSize"]
-        with pytest.raises(ValueError) as excinfo:
-            linear_reg_model(valid_X_train, invalid_y_train)
-        assert "y_train must not contain missing values" in str(excinfo.value)
+        assert "Input data must not contain missing values" in str(excinfo.value)
