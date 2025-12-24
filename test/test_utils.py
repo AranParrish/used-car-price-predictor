@@ -178,6 +178,20 @@ class TestEmbeddingsPreprocessing:
         X_num, _, _, _ = embeddings_preprocessing(cleansed_df, target_col="price")
         pd.testing.assert_frame_equal(X_num, num_cols)
 
+    @pytest.mark.it("Boolean columns converted to integer")
+    def test_bool_becomes_int(self, cleansed_df):
+        test_bool = np.random.default_rng(seed=42)
+        cleansed_df["rand_bool"] = test_bool.choice(
+            [True, False], size=len(cleansed_df)
+        )
+        X_num, X_cat, _, mappings = embeddings_preprocessing(
+            cleansed_df, target_col="price"
+        )
+        assert "rand_bool" in X_num.columns
+        assert X_num["rand_bool"].dtype == "int8"
+        assert "rand_bool" not in X_cat.columns
+        assert "rand_bool" not in mappings
+
 
 @pytest.mark.describe("Embeddings Preprocessing Exception Handling")
 class TestEmbeddingsPreprocessingExceptions:

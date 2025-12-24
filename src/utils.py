@@ -116,8 +116,13 @@ def embeddings_preprocessing(
     y = df[target_col].reset_index(drop=True)
     X = df.drop(columns=target_col)
     num_cols = X.select_dtypes(include=["number"]).columns
-    cat_cols = X.select_dtypes(include=["object", "string", "boolean"]).columns
-    X_num = X[num_cols].reset_index(drop=True)
+    bool_cols = X.select_dtypes(include=["boolean"]).columns
+    cat_cols = X.select_dtypes(include=["object", "string"]).columns
+    X_num = (
+        X[num_cols.union(bool_cols)]
+        .astype({col: "int8" for col in bool_cols})
+        .reset_index(drop=True)
+    )
     X_cat = pd.DataFrame()
     mappings = {}
 
