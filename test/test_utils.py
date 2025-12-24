@@ -35,8 +35,8 @@ class TestLinearPreprocessing:
         linear_preprocessing(cleansed_df)
         pd.testing.assert_frame_equal(cleansed_df, copy_df)
 
-    @pytest.mark.it("Returns a new Dataframe")
-    def test_returns_new_Dataframe(self, cleansed_df):
+    @pytest.mark.it("Returns a new DataFrame")
+    def test_returns_new_dataframe(self, cleansed_df):
         output = linear_preprocessing(cleansed_df)
         assert isinstance(output, pd.DataFrame)
         assert output is not cleansed_df
@@ -56,11 +56,11 @@ class TestLinearPreprocessing:
 @pytest.mark.describe("Linear Preprocessing exception handling")
 class TestLinearPreprocessingExceptions:
 
-    @pytest.mark.it("Raises TypeError if input data is not a Dataframe")
-    def test_typeerror_not_a_Dataframe(self):
+    @pytest.mark.it("Raises TypeError if input data is not a DataFrame")
+    def test_typeerror_not_a_dataframe(self):
         with pytest.raises(TypeError) as excinfo:
-            linear_preprocessing("not a Dataframe")
-        assert "Input must be a pandas Dataframe" in str(excinfo.value)
+            linear_preprocessing("not a DataFrame")
+        assert "Input must be a pandas DataFrame" in str(excinfo.value)
 
     @pytest.mark.it("Raises ValueError if input data contains invalid rows")
     def test_valueerror_invalid_rows(self):
@@ -113,18 +113,18 @@ class TestLinearTrainTestSplit:
 @pytest.mark.describe("Linear Train / Test exception handling")
 class TestLinearTrainTestExceptions:
 
-    @pytest.mark.it("Raises TypeError if input is not a Dataframe")
-    def test_input_not_a_Dataframe(self):
+    @pytest.mark.it("Raises TypeError if input is not a DataFrame")
+    def test_input_not_a_dataframe(self):
         invalid_input = []
         with pytest.raises(TypeError) as excinfo:
             linear_train_test_datasets(invalid_input, target_col="price")
-        assert "Input dataset must be a pandas Dataframe" in str(excinfo.value)
+        assert "Input dataset must be a pandas DataFrame" in str(excinfo.value)
 
-    @pytest.mark.it("Raises ValueError if input Dataframe contains non-numeric columns")
+    @pytest.mark.it("Raises ValueError if input DataFrame contains non-numeric columns")
     def test_input_non_numeric_cols(self, cleansed_df):
         with pytest.raises(ValueError) as excinfo:
             linear_train_test_datasets(cleansed_df, target_col="price")
-        assert "Input Dataframe must not contain non-numeric columns" in str(
+        assert "Input DataFrame must not contain non-numeric columns" in str(
             excinfo.value
         )
 
@@ -135,14 +135,14 @@ class TestLinearTrainTestExceptions:
         assert "Target column not in input dataset" in str(excinfo.value)
 
     @pytest.mark.it(
-        "Raises ValueError if Dataframe does not contain at least one feature and one target"
+        "Raises ValueError if DataFrame does not contain at least one feature and one target"
     )
     def test_df_without_features(self, linear_processed_df):
         invalid_df = linear_processed_df[["price"]]
         with pytest.raises(ValueError) as excinfo:
             linear_train_test_datasets(invalid_df, target_col="price")
         assert (
-            "Dataframe must contain at least one feature column and one target column"
+            "DataFrame must contain at least one feature column and one target column"
             in str(excinfo.value)
         )
 
@@ -182,11 +182,11 @@ class TestEmbeddingsPreprocessing:
 @pytest.mark.describe("Embeddings Preprocessing Exception Handling")
 class TestEmbeddingsPreprocessingExceptions:
 
-    @pytest.mark.it("Raises TypeError if input data is not a Dataframe")
-    def test_typeerror_input_data_not_a_df(self):
+    @pytest.mark.it("Raises TypeError if input data is not a DataFrame")
+    def test_typeerror_input_data_not_a_dataframe(self):
         with pytest.raises(TypeError) as excinfo:
-            embeddings_preprocessing("not a Dataframe", target_col="price")
-        assert "Input data must be a pandas Dataframe" in str(excinfo.value)
+            embeddings_preprocessing("not a DataFrame", target_col="price")
+        assert "Input data must be a pandas DataFrame" in str(excinfo.value)
 
     @pytest.mark.it("Raises ValueError if target column is not in data")
     def test_valueerror_target_col_not_in_data(self, cleansed_df):
@@ -248,17 +248,17 @@ class TestSplitTensorise:
 @pytest.mark.describe("Split and tensorise exception handling")
 class TestSplitTensoriseExceptions:
 
-    @pytest.mark.it("Raises TypeError if any input data is not a Dataframe")
-    def test_typeerror_any_input_data_not_Dataframe(
+    @pytest.mark.it("Raises TypeError if any input data is not a DataFrame")
+    def test_typeerror_any_input_data_not_dataframe(
         self, embeddings_preprocessing_data
     ):
         _, _, y, _ = embeddings_preprocessing_data
         with pytest.raises(TypeError) as excinfo:
-            split_and_tensorise("not a Dataframe", "not a Dataframe", y)
-        assert "Input features must be pandas Dataframe" in str(excinfo.value)
+            split_and_tensorise("not a DataFrame", "not a DataFrame", y)
+        assert "Input features must be pandas DataFrame" in str(excinfo.value)
 
     @pytest.mark.it("Raises TypeError if target is not a Series")
-    def test_target_not_a_Series(self, embeddings_preprocessing_data):
+    def test_target_not_a_series(self, embeddings_preprocessing_data):
         X_num, X_cat, _, _ = embeddings_preprocessing_data
         with pytest.raises(TypeError) as excinfo:
             split_and_tensorise(X_num, X_cat, "not a Series")
@@ -283,3 +283,13 @@ class TestSplitTensoriseExceptions:
         with pytest.raises(ValueError) as excinfo:
             split_and_tensorise(X_num, X_cat, y)
         assert "X_cat must only contain integer category code" in str(excinfo.value)
+
+    @pytest.mark.it("Raises ValueError for missing values")
+    def test_missing_values(self, embeddings_preprocessing_data):
+        invalid_data = Path("data/invalid_test_data/ford.csv")
+        df = pd.read_csv(invalid_data)
+        invalid_X_num = df[["engineSize"]]
+        _, X_cat, y, _ = embeddings_preprocessing_data
+        with pytest.raises(ValueError) as excinfo:
+            split_and_tensorise(invalid_X_num, X_cat, y)
+        assert "Input data must not contain missing values" in str(excinfo.value)

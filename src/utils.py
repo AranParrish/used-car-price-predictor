@@ -7,24 +7,24 @@ from datetime import datetime
 
 def linear_preprocessing(df: pd.DataFrame) -> pd.DataFrame:
     """
-    Function to preprocess a Dataframe before being used for linear regression ML models.
+    Function to preprocess a DataFrame before being used for linear regression ML models.
 
-    Applies "one hot encoding" to categorical columns and returns a fully numeric Dataframe.
+    Applies "one hot encoding" to categorical columns and returns a fully numeric DataFrame.
 
     Args:
-        df - a cleaned Dataframe without any invalid row values.
+        df - a cleaned DataFrame without any invalid row values.
 
     Returns:
-        A fully numeric Dataframe, suitable for use with ML models.
+        A DataFrame with categorical columns one-hot encoded (excluding "boolean" type), suitable for use with sklearn ML models.
 
     Raises:
-        TypeError if input data is not a pandas Dataframe.
+        TypeError if input data is not a pandas DataFrame.
         ValueError if input data contains invalid rows.
     """
     if not isinstance(df, pd.DataFrame):
-        raise TypeError("Input must be a pandas Dataframe")
+        raise TypeError("Input must be a pandas DataFrame")
 
-    if df.isna().values.any():
+    if df.isna().any().any():
         raise ValueError("Input data contains invalid rows")
 
     processed_df = df.copy(deep=True)
@@ -37,16 +37,16 @@ def linear_preprocessing(df: pd.DataFrame) -> pd.DataFrame:
 
 def linear_train_test_datasets(
     df: pd.DataFrame,
-    target_col: str | int | float | tuple | datetime,
+    target_col: str | int,
     test_size: int | float = 0.2,
     random_seed: RandomState | int = 42,
-) -> list[pd.DataFrame, pd.DataFrame, pd.Series, pd.Series]:
+) -> tuple[pd.DataFrame, pd.DataFrame, pd.Series, pd.Series]:
     """
     Function to split given dataset into test and training sets for linear regression ML models
 
     Args:
-        df - Numeric pandas Dataframe containing full dataset (features and target)
-        target_col - String name of the target column (i.e. y values, all remaining columns used as features)
+        df - Numeric pandas DataFrame containing full dataset (features and target)
+        target_col - String or integer value of the target column (i.e. y values, all remaining columns used as features)
         (Optional) test_size - Proportion of data to use as test set, remaining data used for training set.
                     Can be given as a proportion (between 0.0 and 1.0) or absolute integer number of samples.
                     Default value of 0.2.
@@ -56,56 +56,56 @@ def linear_train_test_datasets(
         Four datasets as a list - two training sets (of features and target data) and two testing sets (of features and target data)
 
     Raises:
-        TypeError if input data is not a pandas Dataframe
+        TypeError if input data is not a pandas DataFrame
         ValueError if:
-            - input target column is not present in the Dataframe
+            - input target column is not present in the DataFrame
             - input data contains non-numeric columns
             - input data does not contain any features
     """
     if not isinstance(df, pd.DataFrame):
-        raise TypeError("Input dataset must be a pandas Dataframe")
+        raise TypeError("Input dataset must be a pandas DataFrame")
 
-    if not df.select_dtypes(include=["object", "string", "boolean"]).empty:
-        raise ValueError("Input Dataframe must not contain non-numeric columns")
+    if not df.select_dtypes(exclude=["number"]).empty:
+        raise ValueError("Input DataFrame must not contain non-numeric columns")
 
     if len(df.columns) < 2:
         raise ValueError(
-            "Dataframe must contain at least one feature column and one target column"
+            "DataFrame must contain at least one feature column and one target column"
         )
 
     if target_col not in df.columns:
         raise ValueError("Target column not in input dataset")
 
     y = df[target_col]
-    X = df.drop(columns=target_col, axis=1)
+    X = df.drop(columns=target_col)
 
     return train_test_split(X, y, test_size=test_size, random_state=random_seed)
 
 
 def embeddings_preprocessing(
-    df: pd.DataFrame, target_col: str | int | float | datetime | tuple
+    df: pd.DataFrame, target_col: str | int
 ) -> tuple[pd.DataFrame, pd.DataFrame, pd.Series, dict]:
     """
-    Function to preprocess a Dataframe being used for a PyTorch Neural Network ML model.
+    Function to preprocess a DataFrame being used for a PyTorch Neural Network ML model.
 
     Builds embeddings layers for categorical columns.
 
     Args:
-        df - a cleaned Dataframe without any invalid row values.
+        df - a cleaned DataFrame without any invalid row values.
         target_col - name of column containing target values.
 
     Returns:
-        A tuple containing a Dataframe of numerical features, a Dataframe of categorical features,
+        A tuple containing a DataFrame of numerical features, a DataFrame of categorical features,
         a Series containing target values, and a dictionary of mappings for the categorical features.
 
     Raises:
-        TypeError if input data is not a pandas Dataframe.
+        TypeError if input data is not a pandas DataFrame.
         ValueError if target_col is not found in the input data.
         ValueError if input data contains invalid rows (e.g. NA values).
 
     """
     if not isinstance(df, pd.DataFrame):
-        raise TypeError("Input data must be a pandas Dataframe")
+        raise TypeError("Input data must be a pandas DataFrame")
 
     if target_col not in df.columns:
         raise ValueError("Target column not found in input data")
@@ -122,9 +122,9 @@ def embeddings_preprocessing(
     mappings = {}
 
     for col in cat_cols:
-        cat_Series = X[col].astype("category")
-        X_cat[col] = cat_Series.cat.codes
-        mappings[col] = dict(enumerate(cat_Series.cat.categories))
+        cat_series = X[col].astype("category")
+        X_cat[col] = cat_series.cat.codes
+        mappings[col] = dict(enumerate(cat_series.cat.categories))
 
     return X_num, X_cat, y, mappings
 
@@ -147,8 +147,8 @@ def split_and_tensorise(
     Function to create training and testing datasets as torch tensors for use in a PyTorch model.
 
     Args:
-        X_num - Pandas Dataframe of numerical features data.
-        X_cat - Pandas Dataframe of categorical features data (as an embeddings layer).
+        X_num - Pandas DataFrame of numerical features data.
+        X_cat - Pandas DataFrame of categorical features data (as an embeddings layer).
         y - Pandas Series of target data.
         (Optional) test_size - Proportion of data to use as test set, remaining data used for training set.
                     Can be given as a proportion (between 0.0 and 1.0) or absolute integer number of samples.
@@ -160,12 +160,14 @@ def split_and_tensorise(
 
     Raises:
         TypeError if:
-            - either input features are not a pandas Dataframe
+            - either input features are not a pandas DataFrame
             - the target data is not a pandas Series
-        ValueError if any input data contains non-numeric values
+        ValueError if:
+            - any input data contains non-numeric values
+            - any input data contains missing values
     """
     if not all(isinstance(data, pd.DataFrame) for data in (X_num, X_cat)):
-        raise TypeError("Input features must be pandas Dataframe")
+        raise TypeError("Input features must be pandas DataFrame")
 
     if not isinstance(y, pd.Series):
         raise TypeError("Target must be a pandas Series")
@@ -173,8 +175,11 @@ def split_and_tensorise(
     if not X_num.select_dtypes(exclude=["number"]).empty:
         raise ValueError("X_num must only contain numeric values")
 
-    if not X_cat.select_dtypes(exclude=["integer"]).empty:
+    if not X_cat.apply(pd.api.types.is_integer_dtype).all():
         raise ValueError("X_cat must only contain integer category codes")
+
+    if any(data.isna().any().any() for data in (X_num, X_cat, y)):
+        raise ValueError("Input data must not contain missing values")
 
     X_num_train, X_num_test, X_cat_train, X_cat_test, y_train, y_test = (
         train_test_split(X_num, X_cat, y, test_size=test_size, random_state=random_seed)
