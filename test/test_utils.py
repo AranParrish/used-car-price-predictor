@@ -247,6 +247,30 @@ class TestSplitTensorise:
         assert X_num_train.shape[0] == X_cat_train.shape[0] == y_train.shape[0]
         assert X_num_test.shape[0] == X_cat_test.shape[0] == y_test.shape[0]
 
+    @pytest.mark.it("Returns expected output shapes")
+    def test_returns_expected_shapes(self, embeddings_preprocessing_data):
+        X_num, X_cat, y, _ = embeddings_preprocessing_data
+        expected_train_size = X_num.shape[0] * 0.8
+        expected_test_size = X_num.shape[0] * 0.2
+        X_num_train, X_num_test, X_cat_train, X_cat_test, y_train, y_test = (
+            split_and_tensorise(X_num, X_cat, y)
+        )
+        assert (
+            X_num_test.shape[0]
+            == X_cat_test.shape[0]
+            == y_test.shape[0]
+            == expected_test_size
+        )
+        assert (
+            X_num_train.shape[0]
+            == X_cat_train.shape[0]
+            == y_train.shape[0]
+            == expected_train_size
+        )
+        assert X_num_test.shape[1] == X_num_train.shape[1] == X_num.shape[1]
+        assert X_cat_test.shape[1] == X_cat_train.shape[1] == X_cat.shape[1]
+        assert y_test.shape[1] == y_train.shape[1] == 1
+
     @pytest.mark.it("Train and test sizes returned as expected")
     def test_traintest_sizes(self):
         test_X_num = pd.DataFrame(np.random.rand(100, 3))
