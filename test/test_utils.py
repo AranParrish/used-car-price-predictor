@@ -1,12 +1,15 @@
 import pytest, torch
 import pandas as pd
 import numpy as np
+from collections.abc import Mapping
 from pathlib import Path
+from copy import deepcopy
 from src.utils import (
     linear_train_test_datasets,
     linear_preprocessing,
     embeddings_preprocessing,
     split_and_tensorise,
+    fastai_embedding_dims,
 )
 from src.data_loader import load_data
 
@@ -24,6 +27,14 @@ def linear_processed_df(cleansed_df):
 @pytest.fixture(scope="function")
 def embeddings_preprocessing_data(cleansed_df):
     return embeddings_preprocessing(cleansed_df, target_col="price")
+
+
+@pytest.fixture(scope="function")
+def example_mappings():
+    return {
+        "a": {0: "a", 1: "b"},
+        "b": {0: "a", 1: "b", 2: "c", 3: "d"},
+    }
 
 
 @pytest.mark.describe("Linear Preprocessing function tests")
@@ -164,7 +175,7 @@ class TestEmbeddingsPreprocessing:
         assert isinstance(X_num, pd.DataFrame)
         assert isinstance(X_cat, pd.DataFrame)
         assert isinstance(y, pd.Series)
-        assert isinstance(mappings, dict)
+        assert isinstance(mappings, Mapping)
 
     @pytest.mark.it("Categorical columns are encoded")
     def test_cat_cols_encoded(self, cleansed_df):
@@ -331,3 +342,64 @@ class TestSplitTensoriseExceptions:
         with pytest.raises(ValueError) as excinfo:
             split_and_tensorise(invalid_X_num, X_cat, y)
         assert "Input data must not contain missing values" in str(excinfo.value)
+
+
+@pytest.mark.describe("FastAI Embedding Dims Function Tests")
+class TestFastAIEmbeddingDims:
+
+    @pytest.mark.it("Inputs not mutated")
+    def test_inputs_not_mutated(self, example_mappings):
+        copy_mappings = deepcopy(example_mappings)
+        fastai_embedding_dims(example_mappings)
+        assert copy_mappings == example_mappings
+
+    @pytest.mark.it("Returns expected result")
+    def test_return_expected_result(self, example_mappings):
+        output = fastai_embedding_dims(example_mappings)
+        assert output == [1, 2]
+
+    @pytest.mark.it("Limits maximum dimension to user-defined value")
+    def test_limits_maximum_dim(self, example_mappings):
+        output = fastai_embedding_dims(example_mappings, max_dim=1)
+        assert output == [1, 1]
+
+    @pytest.mark.it("Returns dimension of 1 for a column with zero categories")
+    def test_returns_1_for_zero_cats(self):
+        test_mappings = {
+            "a": {0: "a", 1: "b"},
+            "b": {},
+        }
+        output = fastai_embedding_dims(test_mappings)
+        assert output == [1, 1]
+
+
+@pytest.mark.describe("FastAI Embedding Dims Exception Handling")
+class TestFastAIEmbeddingDimsExceptions:
+
+    @pytest.mark.it("Raises TypeError if column names map is not a Mapping")
+    def test_input_mappings_is_invalid_type(self):
+        with pytest.raises(TypeError) as excinfo:
+            fastai_embedding_dims(42)
+        assert "mappings must be a Mapping type" in str(excinfo.value)
+
+    @pytest.mark.it("Raises TypeError if categorical codes map is not a Mapping")
+    def test_categorical_codes_is_invalid_type(self):
+        invalid_test_mappings = {
+            "a": 42,
+            "b": {0: "a", 1: "b", 2: "c", 3: "d"},
+        }
+        with pytest.raises(TypeError) as excinfo:
+            fastai_embedding_dims(invalid_test_mappings)
+        assert "Each categorical codes map must be a Mapping type" in str(excinfo.value)
+
+    @pytest.mark.it("Raises TypeError if max_dim is not an integer")
+    def test_max_dim_not_int(self, example_mappings):
+        with pytest.raises(TypeError) as excinfo:
+            fastai_embedding_dims(example_mappings, max_dim="42")
+        assert "max_dim must be an integer" in str(excinfo.value)
+
+    @pytest.mark.it("Raises ValueError if max_dim is not a positive integer")
+    def test_max_dim_not_positive_int(self, example_mappings):
+        with pytest.raises(ValueError) as excinfo:
+            fastai_embedding_dims(example_mappings, max_dim=0)
+        assert "max_dim must be a positive integer" in str(excinfo.value)

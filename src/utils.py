@@ -1,8 +1,9 @@
 import pandas as pd
+from typing import Hashable
+from collections.abc import Mapping
 import torch
 from sklearn.model_selection import train_test_split
 from numpy.random import RandomState
-from datetime import datetime
 
 
 def linear_preprocessing(df: pd.DataFrame) -> pd.DataFrame:
@@ -37,7 +38,7 @@ def linear_preprocessing(df: pd.DataFrame) -> pd.DataFrame:
 
 def linear_train_test_datasets(
     df: pd.DataFrame,
-    target_col: str | int,
+    target_col: Hashable,
     test_size: int | float = 0.2,
     random_seed: RandomState | int = 42,
 ) -> tuple[pd.DataFrame, pd.DataFrame, pd.Series, pd.Series]:
@@ -46,7 +47,7 @@ def linear_train_test_datasets(
 
     Args:
         df - Numeric pandas DataFrame containing full dataset (features and target)
-        target_col - String or integer value of the target column (i.e. y values, all remaining columns used as features)
+        target_col - column containing target values (i.e. y values, all remaining columns used as features)
         (Optional) test_size - Proportion of data to use as test set, remaining data used for training set.
                     Can be given as a proportion (between 0.0 and 1.0) or absolute integer number of samples.
                     Default value of 0.2.
@@ -83,8 +84,8 @@ def linear_train_test_datasets(
 
 
 def embeddings_preprocessing(
-    df: pd.DataFrame, target_col: str | int
-) -> tuple[pd.DataFrame, pd.DataFrame, pd.Series, dict]:
+    df: pd.DataFrame, target_col: Hashable
+) -> tuple[pd.DataFrame, pd.DataFrame, pd.Series, Mapping[Hashable, Mapping]]:
     """
     Function to preprocess a DataFrame being used for a PyTorch Neural Network ML model.
 
@@ -92,11 +93,11 @@ def embeddings_preprocessing(
 
     Args:
         df - a cleaned DataFrame without any invalid row values.
-        target_col - name of column containing target values.
+        target_col - column containing target values.
 
     Returns:
         A tuple containing a DataFrame of numerical features, a DataFrame of categorical features,
-        a Series containing target values, and a dictionary of mappings for the categorical features.
+        a Series containing target values, and a mapping of the categorical features.
 
     Raises:
         TypeError if input data is not a pandas DataFrame.
@@ -198,3 +199,42 @@ def split_and_tensorise(
         torch.tensor(y_train.to_numpy(), dtype=torch.float32).unsqueeze(1),
         torch.tensor(y_test.to_numpy(), dtype=torch.float32).unsqueeze(1),
     )
+
+
+def fastai_embedding_dims(
+    mappings: Mapping[Hashable, Mapping],
+    max_dim: int = 50,
+) -> list[int]:
+    """
+    Function to generate embedding dimensions using the FastAI heuristic approach.
+
+    Args:
+        mappings - map of column names to associated mappings of categorical codes.
+        (Optional) max_dim - user-defined limit on the embedding dimension. Default value of 50.
+
+    Returns:
+        List of embedding dimensions corresponding to the order of mappings.values().
+
+    Raises:
+        TypeError if:
+            - column names map is not a Mapping type
+            - any categorical codes map is not a Mapping type
+            - max_dim is not an integer
+        ValueError if max_dim is not a positive integer.
+    """
+    if not isinstance(mappings, Mapping):
+        raise TypeError("mappings must be a Mapping type")
+
+    if not all(isinstance(mapping, Mapping) for mapping in mappings.values()):
+        raise TypeError("Each categorical codes map must be a Mapping type")
+
+    if not isinstance(max_dim, int):
+        raise TypeError("max_dim must be an integer")
+
+    if max_dim < 1:
+        raise ValueError("max_dim must be a positive integer")
+
+    return [
+        max(1, min(max_dim, int(len(categories) ** 0.5)))
+        for categories in mappings.values()
+    ]
