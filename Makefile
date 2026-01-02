@@ -60,6 +60,3 @@ check-coverage:
 
 ## Run all checks
 run-checks: safety-test bandit-test run-black unit-test check-coverage
-
-## Full build and run command for CI/CD runner (excluding safety as need separate GitHub Action for login)
-run-all: dev-requirements bandit-test run-black unit-test check-coverage
