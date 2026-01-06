@@ -10,6 +10,7 @@ from src.utils import (
     embeddings_preprocessing,
     split_and_tensorise,
     fastai_embedding_dims,
+    embedding_specs,
 )
 from src.data_loader import load_data
 
@@ -35,6 +36,11 @@ def example_mappings():
         "a": {0: "a", 1: "b"},
         "b": {0: "a", 1: "b", 2: "c", 3: "d"},
     }
+
+
+@pytest.fixture(scope="function")
+def example_embedding_dims(example_mappings):
+    return fastai_embedding_dims(example_mappings)
 
 
 @pytest.mark.describe("Linear Preprocessing function tests")
@@ -403,3 +409,20 @@ class TestFastAIEmbeddingDimsExceptions:
         with pytest.raises(ValueError) as excinfo:
             fastai_embedding_dims(example_mappings, max_dim=0)
         assert "max_dim must be a positive integer" in str(excinfo.value)
+
+
+@pytest.mark.describe("Embedding Specs Function Tests")
+class TestEmbeddingSpecs:
+
+    @pytest.mark.it("Inputs not mutated")
+    def test_inputs_not_mutated(self, example_mappings, example_embedding_dims):
+        copy_mappings = deepcopy(example_mappings)
+        copy_embedding_dims = deepcopy(example_embedding_dims)
+        embedding_specs(example_mappings, example_embedding_dims)
+        assert copy_mappings == example_mappings
+        assert copy_embedding_dims == example_embedding_dims
+
+    @pytest.mark.it("Returns expected result")
+    def test_returns_expected_result(self, example_mappings, example_embedding_dims):
+        output = embedding_specs(example_mappings, example_embedding_dims)
+        assert output == [(2, 1), (4, 2)]

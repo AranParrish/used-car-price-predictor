@@ -238,3 +238,22 @@ def fastai_embedding_dims(
         max(1, min(max_dim, int(len(categories) ** 0.5)))
         for categories in mappings.values()
     ]
+
+
+def embedding_specs(
+    mappings: Mapping[Hashable, Mapping], embedding_dims: list[int]
+) -> list[tuple[int, int]]:
+    """
+    Function to build embedding specs for input to embedding layers of a PyTorch model.
+
+    Args:
+        mappings - map of column names to associated mappings of categorical codes.
+        embedding_dims - list of embedding dimensions corresponding to the order of mappings.values()
+
+    Returns:
+        A list of tuples pairing the cardinality of each categorical column with its embedding dimensions value.
+    """
+    return [
+        (len(categories), embedding_dim)
+        for categories, embedding_dim in zip(mappings.values(), embedding_dims)
+    ]
