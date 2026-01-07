@@ -252,7 +252,29 @@ def embedding_specs(
 
     Returns:
         A list of tuples pairing the cardinality of each categorical column with its embedding dimensions value.
+
+    Raises:
+        TypeError if:
+            - column names map is not a Mapping type
+            - any categorical codes map is not a Mapping type
+            - embedding_dims is not a list of integers
+        ValueError if mappings and embedding dims differ in length
     """
+    if not isinstance(mappings, Mapping):
+        raise TypeError("mappings must be a Mapping type")
+
+    if not all(isinstance(mapping, Mapping) for mapping in mappings.values()):
+        raise TypeError("Each categorical codes map must be a Mapping type")
+
+    if not (
+        isinstance(embedding_dims, list)
+        and all(isinstance(value, int) for value in embedding_dims)
+    ):
+        raise TypeError("embedding_dims must be a list of integers")
+
+    if len(mappings) != len(embedding_dims):
+        raise ValueError("mappings and embedding_dims must be equal in length")
+
     return [
         (len(categories), embedding_dim)
         for categories, embedding_dim in zip(mappings.values(), embedding_dims)

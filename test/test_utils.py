@@ -426,3 +426,48 @@ class TestEmbeddingSpecs:
     def test_returns_expected_result(self, example_mappings, example_embedding_dims):
         output = embedding_specs(example_mappings, example_embedding_dims)
         assert output == [(2, 1), (4, 2)]
+
+
+@pytest.mark.describe("Embedding Specs Exception Handling")
+class TestEmbeddingSpecsExceptions:
+
+    @pytest.mark.it("Raises TypeError if column names map is not a Mapping")
+    def test_input_mappings_invalid_type(self, example_embedding_dims):
+        with pytest.raises(TypeError) as excinfo:
+            embedding_specs("not a mapping", example_embedding_dims)
+        assert "mappings must be a Mapping type" in str(excinfo.value)
+
+    @pytest.mark.it("Raises TypeError if categorical codes is not a Mapping")
+    def test_categorical_codes_is_invalid_type(self, example_embedding_dims):
+        invalid_test_mappings = {
+            "a": 42,
+            "b": {0: "a", 1: "b", 2: "c", 3: "d"},
+        }
+        with pytest.raises(TypeError) as excinfo:
+            embedding_specs(invalid_test_mappings, example_embedding_dims)
+        assert "Each categorical codes map must be a Mapping type" in str(excinfo.value)
+
+    @pytest.mark.it("Raises TypeError if embedding dims is not a list")
+    def test_embedding_dims_not_a_list(self, example_mappings):
+        invalid_embedding_dims = {}
+        with pytest.raises(TypeError) as excinfo:
+            embedding_specs(example_mappings, invalid_embedding_dims)
+        assert "embedding_dims must be a list of integers" in str(excinfo.value)
+
+    @pytest.mark.it(
+        "Raises TypeError if embedding dims list contains non-integer values"
+    )
+    def test_embedding_dims_contains_non_integer_values(self, example_mappings):
+        invalid_embedding_dims = [1, "a"]
+        with pytest.raises(TypeError) as excinfo:
+            embedding_specs(example_mappings, invalid_embedding_dims)
+        assert "embedding_dims must be a list of integers" in str(excinfo.value)
+
+    @pytest.mark.it("Raises ValueError for length mismatch")
+    def test_length_mismatch(self, example_mappings):
+        short_embedding_dims = [1]
+        with pytest.raises(ValueError) as excinfo:
+            embedding_specs(example_mappings, short_embedding_dims)
+        assert "mappings and embedding_dims must be equal in length" in str(
+            excinfo.value
+        )
