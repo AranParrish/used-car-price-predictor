@@ -181,7 +181,7 @@ class TestEmbeddingsPreprocessing:
         assert isinstance(X_num, pd.DataFrame)
         assert isinstance(X_cat, pd.DataFrame)
         assert isinstance(y, pd.Series)
-        assert isinstance(mappings, Mapping)
+        assert isinstance(mappings, dict)
 
     @pytest.mark.it("Categorical columns are encoded")
     def test_cat_cols_encoded(self, cleansed_df):
@@ -201,13 +201,13 @@ class TestEmbeddingsPreprocessing:
         cleansed_df["rand_bool"] = test_bool.choice(
             [True, False], size=len(cleansed_df)
         )
-        X_num, X_cat, _, mappings = embeddings_preprocessing(
+        X_num, X_cat, _, metadata = embeddings_preprocessing(
             cleansed_df, target_col="price"
         )
         assert "rand_bool" in X_num.columns
         assert X_num["rand_bool"].dtype == "int8"
         assert "rand_bool" not in X_cat.columns
-        assert "rand_bool" not in mappings
+        assert "rand_bool" not in metadata["mappings"]
 
 
 @pytest.mark.describe("Embeddings Preprocessing Exception Handling")

@@ -85,7 +85,9 @@ def linear_train_test_datasets(
 
 def embeddings_preprocessing(
     df: pd.DataFrame, target_col: Hashable
-) -> tuple[pd.DataFrame, pd.DataFrame, pd.Series, Mapping[Hashable, Mapping]]:
+) -> tuple[
+    pd.DataFrame, pd.DataFrame, pd.Series, dict[list, list, Mapping[Hashable, Mapping]]
+]:
     """
     Function to preprocess a DataFrame being used for a PyTorch Neural Network ML model.
 
@@ -97,7 +99,7 @@ def embeddings_preprocessing(
 
     Returns:
         A tuple containing a DataFrame of numerical features, a DataFrame of categorical features,
-        a Series containing target values, and a mapping of the categorical features.
+        a Series containing target values, and a dictionary of metadata covering features column names and a mapping of the categorical feature codes.
 
     Raises:
         TypeError if input data is not a pandas DataFrame.
@@ -132,7 +134,13 @@ def embeddings_preprocessing(
         X_cat[col] = cat_series.cat.codes
         mappings[col] = dict(enumerate(cat_series.cat.categories))
 
-    return X_num, X_cat, y, mappings
+    metadata = {
+        "num_cols": list(X_num.columns),
+        "cat_cols": list(X_cat.columns),
+        "mappings": mappings,
+    }
+
+    return X_num, X_cat, y, metadata
 
 
 def split_and_tensorise(
