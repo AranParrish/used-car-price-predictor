@@ -26,6 +26,7 @@ class EmbeddingNN(nn.Module):
             - num_numeric_features is negative
             - there are tuples without a length of 2 in the embedding_specs
             - any embedding specs contain values <= 0
+            - no categorical features are provided (i.e. embedding_specs is an empty list)
     """
 
     def __init__(
@@ -36,8 +37,8 @@ class EmbeddingNN(nn.Module):
         if not isinstance(num_numeric_features, int):
             raise TypeError("num_numeric_features must be an integer")
 
-        if num_numeric_features < 0:
-            raise ValueError("num_numeric_features must be non-negative")
+        if num_numeric_features <= 0:
+            raise ValueError("EmbeddingNN requires at least one numerical feature")
 
         if not isinstance(embedding_specs, list):
             raise TypeError("embedding_specs must be a list")
@@ -83,11 +84,42 @@ class EmbeddingNN(nn.Module):
         )
 
     def forward(self, X_num: torch.Tensor, X_cat: torch.Tensor) -> torch.Tensor:
-        embedded = [emb(X_cat[:, i]) for i, emb in enumerate(self.embeddings)]
+        """
+        Forward pass method for making predictions through the model.
 
+        Args:
+            X_num - Tensor of numerical features data
+            X_cat - Tensor of encoded categorical features data
+
+        Returns:
+            Tensor of predicted output values for each row.
+
+        Raises:
+            ValueError if:
+                - No categorical features data is provided
+                - No numerical features data is provided
+                - The number of categorical features does not match the number of embeddings
+                - The number of rows differs between the input datasets
+        """
+
+        if X_cat.numel() == 0:
+            raise ValueError("X_cat must contain at least one categorical feature")
+
+        if X_num.numel() == 0:
+            raise ValueError("X_num must contain at least one numerical feature")
+
+        if X_num.shape[0] != X_cat.shape[0]:
+            raise ValueError("X_num and X_cat must have the same number of rows")
+
+        if X_cat.shape[1] != len(self.embeddings):
+            raise ValueError(
+                f"Expected {len(self.embeddings)} categorical features, got {X_cat.shape[1]}"
+            )
+
+        embedded = [emb(X_cat[:, i]) for i, emb in enumerate(self.embeddings)]
         X_emb = torch.cat(embedded, dim=1)
-        X = torch.cat([X_num, X_emb], dim=1)
-        return self.mlp(X)
+        X_combined = torch.cat([X_num, X_emb], dim=1)
+        return self.mlp(X_combined)
 
 
 # def create_nn_model(input_dim: int) -> nn.Module:

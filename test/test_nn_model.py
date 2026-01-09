@@ -39,6 +39,14 @@ def example_embedding_specs(preprocessed_data):
     return sample_embedding_specs
 
 
+@pytest.fixture(scope="function")
+def example_model(example_embedding_specs, training_data):
+    X_num, _, _ = training_data
+    num_numeric = X_num.shape[1]
+    model = EmbeddingNN(num_numeric, example_embedding_specs)
+    return model
+
+
 @pytest.mark.describe("Embedding NN custom class tests")
 class TestEmbeddingNN:
 
@@ -63,14 +71,6 @@ class TestEmbeddingNN:
         model = EmbeddingNN(num_numeric, example_embedding_specs)
         assert len(model.embeddings) == len(example_embedding_specs)
 
-    @pytest.mark.it("Output shape is correct")
-    def test_model_output_shape(self, training_data, example_embedding_specs):
-        X_num_train, X_cat_train, _ = training_data
-        num_numeric = X_num_train.shape[1]
-        model = EmbeddingNN(num_numeric, example_embedding_specs)
-        output = model(X_num_train, X_cat_train)
-        assert output.shape == (X_num_train.shape[0], 1)
-
     @pytest.mark.it("Model contains expected number of layers")
     def test_expected_number_of_layers(self, example_embedding_specs):
         num_numeric = 3
@@ -92,12 +92,14 @@ class TestEmbeddingNNExceptions:
             EmbeddingNN(invalid_num_numeric, example_embedding_specs)
         assert "num_numeric_features must be an integer" in str(excinfo.value)
 
-    @pytest.mark.it("Raises ValueError for negative number of numeric features")
+    @pytest.mark.it("Raises ValueError for zero or negative number of numeric features")
     def test_negative_numeric_features(self, example_embedding_specs):
         invalid_num_numeric = -1
         with pytest.raises(ValueError) as excinfo:
             EmbeddingNN(invalid_num_numeric, example_embedding_specs)
-        assert "num_numeric_features must be non-negative" in str(excinfo.value)
+        assert "EmbeddingNN requires at least one numerical feature" in str(
+            excinfo.value
+        )
 
     @pytest.mark.it("Raises TypeError for non-list embedding specs")
     def test_embedding_specs_not_a_list(self):
@@ -146,7 +148,7 @@ class TestEmbeddingNNExceptions:
         assert "Embedding spec values must be > 0" in str(excinfo.value)
 
     @pytest.mark.it("Raises ValueError if there are no categorical features")
-    def test_no_input_features(self):
+    def test_no_categorical_features(self):
         num_numeric = 3
         embedding_specs = []
         with pytest.raises(ValueError) as excinfo:
@@ -155,6 +157,76 @@ class TestEmbeddingNNExceptions:
             "EmbeddingNN requires at least one categorical feature (embedding_specs must not be empty)"
             in str(excinfo.value)
         )
+
+
+@pytest.mark.describe("Embedding NN forward pass function tests")
+class TestEmbeddingNNForward:
+
+    @pytest.mark.it("Inputs are not mutated")
+    def test_inputs_not_mutated(self, example_model, training_data):
+        X_num, X_cat, _ = training_data
+        copy_X_num = deepcopy(X_num)
+        copy_X_cat = deepcopy(X_cat)
+        example_model.forward(X_num, X_cat)
+        assert torch.equal(X_num, copy_X_num)
+        assert torch.equal(X_cat, copy_X_cat)
+
+    @pytest.mark.it("Output is of expected type")
+    def test_output_type(self, example_model, training_data):
+        X_num, X_cat, _ = training_data
+        output = example_model.forward(X_num, X_cat)
+        assert isinstance(output, torch.Tensor)
+
+    @pytest.mark.it("Forward pass output shape is correct")
+    def test_model_output_shape(self, training_data, example_model):
+        X_num, X_cat, _ = training_data
+        output = example_model.forward(X_num, X_cat)
+        assert output.shape == (X_num.shape[0], 1)
+
+
+@pytest.mark.describe("Embedding NN forward pass exceptions")
+class TestEmbeddingNNForwardExceptions:
+
+    @pytest.mark.it("Raises ValueError if there is no categorical features data")
+    def test_no_categorical_features_data(self, example_model, training_data):
+        X_num, _, _ = training_data
+        invalid_X_cat = torch.tensor([])
+        with pytest.raises(ValueError) as excinfo:
+            example_model.forward(X_num, invalid_X_cat)
+        assert "X_cat must contain at least one categorical feature" in str(
+            excinfo.value
+        )
+
+    @pytest.mark.it("Raises ValueError if there is no numerical features data")
+    def test_no_numerical_features_data(self, example_model, training_data):
+        _, X_cat, _ = training_data
+        invalid_X_num = torch.tensor([])
+        with pytest.raises(ValueError) as excinfo:
+            example_model.forward(invalid_X_num, X_cat)
+        assert "X_num must contain at least one numerical feature" in str(excinfo.value)
+
+    @pytest.mark.it(
+        "Raises ValueError for incorrect number of categorical features for the model"
+    )
+    def test_incorrect_number_categorical_features(self, example_model, training_data):
+        X_num, X_cat, _ = training_data
+        invalid_X_cat = X_cat[:, [0, 1]]
+        expected_no_cat = X_cat.shape[1]
+        with pytest.raises(ValueError) as excinfo:
+            example_model.forward(X_num, invalid_X_cat)
+        assert f"Expected {expected_no_cat} categorical features, got 2" in str(
+            excinfo.value
+        )
+
+    @pytest.mark.it(
+        "Raises ValueError if number of rows differ between X_num and X_cat"
+    )
+    def test_differing_rows_for_input_datasets(self, example_model, training_data):
+        X_num, X_cat, _ = training_data
+        shortened_X_num = X_num[[0, 1, 2], :]
+        with pytest.raises(ValueError) as excinfo:
+            example_model.forward(shortened_X_num, X_cat)
+        assert "X_num and X_cat must have the same number of rows" in str(excinfo.value)
 
 
 # @pytest.mark.describe("Train NN model function tests")
