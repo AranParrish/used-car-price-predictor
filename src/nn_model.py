@@ -1,7 +1,93 @@
-# import torch.nn as nn
+import torch.nn as nn
+import torch
+
 # import torch.optim as optim
-# import torch
 # import pandas as pd
+
+
+class EmbeddingNN(nn.Module):
+    """
+    Custom class creating a PyTorch neural network model with embedding inputs.
+    Model includes three linear layers and two hidden layers both using the ReLU activation function.
+
+    Args:
+        num_numeric_features - the total number of numeric features
+        embedding_specs - a list of tuples detailing the cardinality and embedding dimension for each categorical feature
+
+    Returns:
+        A PyTorch neural network model with three linear layers and two hidden layers.
+        Input nodes is computed from number of numerical features and embedding specs for categorical features.
+
+    Raises:
+        TypeError if:
+            - num_numeric_features is not an integer
+            - embedding_specs is not a list of tuples containing integer pairs (of cardinality and embedding dimensions)
+        ValueError if:
+            - num_numeric_features is negative
+            - there are tuples without a length of 2 in the embedding_specs
+            - any embedding specs contain values <= 0
+    """
+
+    def __init__(
+        self, num_numeric_features: int, embedding_specs: list[tuple[int, int]]
+    ):
+        super().__init__()
+
+        if not isinstance(num_numeric_features, int):
+            raise TypeError("num_numeric_features must be an integer")
+
+        if num_numeric_features < 0:
+            raise ValueError("num_numeric_features must be non-negative")
+
+        if not isinstance(embedding_specs, list):
+            raise TypeError("embedding_specs must be a list")
+
+        if not embedding_specs:
+            raise ValueError(
+                "EmbeddingNN requires at least one categorical feature (embedding_specs must not be empty)"
+            )
+
+        for embedding_spec in embedding_specs:
+
+            if not isinstance(embedding_spec, tuple):
+                raise TypeError("All embedding specs must be tuples")
+
+            if len(embedding_spec) != 2:
+                raise ValueError("Each embedding spec must have exactly two values")
+
+            num_categories, embedding_dim = embedding_spec
+            if not (isinstance(num_categories, int)) or not isinstance(
+                embedding_dim, int
+            ):
+                raise TypeError("Embedding spec values must be integers")
+
+            if num_categories <= 0 or embedding_dim <= 0:
+                raise ValueError("Embedding spec values must be > 0")
+
+        self.embeddings = nn.ModuleList(
+            [
+                nn.Embedding(num_categories, embedding_dim)
+                for num_categories, embedding_dim in embedding_specs
+            ]
+        )
+
+        total_embedding_dims = sum(dim for _, dim in embedding_specs)
+        total_input_dims = num_numeric_features + total_embedding_dims
+
+        self.mlp = nn.Sequential(
+            nn.Linear(total_input_dims, 32),
+            nn.ReLU(),
+            nn.Linear(32, 16),
+            nn.ReLU(),
+            nn.Linear(16, 1),
+        )
+
+    def forward(self, X_num: torch.Tensor, X_cat: torch.Tensor) -> torch.Tensor:
+        embedded = [emb(X_cat[:, i]) for i, emb in enumerate(self.embeddings)]
+
+        X_emb = torch.cat(embedded, dim=1)
+        X = torch.cat([X_num, X_emb], dim=1)
+        return self.mlp(X)
 
 
 # def create_nn_model(input_dim: int) -> nn.Module:

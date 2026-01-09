@@ -1,53 +1,160 @@
-# import pytest, torch
-# import pandas as pd
-# import torch.nn as nn
-# from pathlib import Path
-# from src.nn_model import create_nn_model, train_nn_model
-# from src.utils import linear_preprocessing, linear_train_test_datasets, tensor_converter
-# from src.data_loader import load_data
+import pytest, torch
+import pandas as pd
+import torch.nn as nn
+from pathlib import Path
+from copy import deepcopy
+from src.nn_model import EmbeddingNN
+from src.utils import (
+    embeddings_preprocessing,
+    split_and_tensorise,
+    fastai_embedding_dims,
+    embedding_specs,
+)
+from src.data_loader import load_data
 
 
-# @pytest.fixture(scope="function")
-# def training_data():
-#     cleansed_df = load_data(Path("data/valid_test_data/"))
-#     preprocessed_df = linear_preprocessing(cleansed_df)
-#     X_train, _, y_train, _ = linear_train_test_datasets(
-#         preprocessed_df, target_col="price"
-#     )
-#     X_train_tensor, y_train_tensor = tensor_converter(X_train, y_train)
-#     return X_train_tensor, y_train_tensor
+@pytest.fixture(scope="function")
+def cleansed_df():
+    return load_data(Path("data/valid_test_data/"))
 
 
-# @pytest.mark.describe("Create NN model function tests")
-# class TestCreateNNModel:
+@pytest.fixture(scope="function")
+def preprocessed_data(cleansed_df):
+    return embeddings_preprocessing(cleansed_df, target_col="price")
 
-#     @pytest.mark.it("Input not mutated")
-#     def test_input_not_mutated(self):
-#         test_input_dim = 10
-#         copy_test_input_dim = 10
-#         create_nn_model(test_input_dim)
-#         assert test_input_dim == copy_test_input_dim
 
-#     @pytest.mark.it("Returns a torch module")
-#     def test_returns_torch_module(self):
-#         model = create_nn_model(input_dim=10)
-#         assert isinstance(model, nn.Module)
+@pytest.fixture(scope="function")
+def training_data(preprocessed_data):
+    X_num, X_cat, y, _ = preprocessed_data
+    X_num_train, _, X_cat_train, _, y_train, _ = split_and_tensorise(X_num, X_cat, y)
+    return (X_num_train, X_cat_train, y_train)
 
-#     @pytest.mark.it("Output shape is correct")
-#     def test_returns_expected_output_shape(self):
-#         model = create_nn_model(input_dim=10)
-#         test_input = torch.randn(1, 10)
-#         output = model(test_input)
-#         assert output.shape == (1, 1)
 
-#     @pytest.mark.it("Model contains expected number of layers")
-#     def test_no_layers(self):
-#         model = create_nn_model(input_dim=10)
-#         layer_count = 0
-#         for module in model.modules():
-#             if isinstance(module, nn.Linear):
-#                 layer_count += 1
-#         assert layer_count == 3
+@pytest.fixture(scope="function")
+def example_embedding_specs(preprocessed_data):
+    _, _, _, metadata = preprocessed_data
+    mappings = metadata["mappings"]
+    sample_embedding_dims = fastai_embedding_dims(mappings)
+    sample_embedding_specs = embedding_specs(mappings, sample_embedding_dims)
+    return sample_embedding_specs
+
+
+@pytest.mark.describe("Embedding NN custom class tests")
+class TestEmbeddingNN:
+
+    @pytest.mark.it("Inputs not mutated")
+    def test_inputs_not_mutated(self, example_embedding_specs):
+        copy_embedding_specs = deepcopy(example_embedding_specs)
+        test_num_numeric = 10
+        copy_test_num_numeric = 10
+        EmbeddingNN(test_num_numeric, example_embedding_specs)
+        assert copy_embedding_specs == example_embedding_specs
+        assert copy_test_num_numeric == test_num_numeric
+
+    @pytest.mark.it("Returns a torch NN module")
+    def test_returns_torch_nn_module(self, example_embedding_specs):
+        num_numeric = 3
+        model = EmbeddingNN(num_numeric, example_embedding_specs)
+        assert isinstance(model, nn.Module)
+
+    @pytest.mark.it("Model has one embedding layer per categorical feature")
+    def test_one_embedding_layer_per_categorical_feature(self, example_embedding_specs):
+        num_numeric = 3
+        model = EmbeddingNN(num_numeric, example_embedding_specs)
+        assert len(model.embeddings) == len(example_embedding_specs)
+
+    @pytest.mark.it("Output shape is correct")
+    def test_model_output_shape(self, training_data, example_embedding_specs):
+        X_num_train, X_cat_train, _ = training_data
+        num_numeric = X_num_train.shape[1]
+        model = EmbeddingNN(num_numeric, example_embedding_specs)
+        output = model(X_num_train, X_cat_train)
+        assert output.shape == (X_num_train.shape[0], 1)
+
+    @pytest.mark.it("Model contains expected number of layers")
+    def test_expected_number_of_layers(self, example_embedding_specs):
+        num_numeric = 3
+        model = EmbeddingNN(num_numeric, example_embedding_specs)
+        layer_count = 0
+        for module in model.modules():
+            if isinstance(module, nn.Linear):
+                layer_count += 1
+        assert layer_count == 3
+
+
+@pytest.mark.describe("Embedding NN exception handling")
+class TestEmbeddingNNExceptions:
+
+    @pytest.mark.it("Raises TypeError for non-integer number of numeric features")
+    def test_non_integer_numeric_features(self, example_embedding_specs):
+        invalid_num_numeric = "3"
+        with pytest.raises(TypeError) as excinfo:
+            EmbeddingNN(invalid_num_numeric, example_embedding_specs)
+        assert "num_numeric_features must be an integer" in str(excinfo.value)
+
+    @pytest.mark.it("Raises ValueError for negative number of numeric features")
+    def test_negative_numeric_features(self, example_embedding_specs):
+        invalid_num_numeric = -1
+        with pytest.raises(ValueError) as excinfo:
+            EmbeddingNN(invalid_num_numeric, example_embedding_specs)
+        assert "num_numeric_features must be non-negative" in str(excinfo.value)
+
+    @pytest.mark.it("Raises TypeError for non-list embedding specs")
+    def test_embedding_specs_not_a_list(self):
+        num_numeric = 3
+        invalid_embedding_specs = {}
+        with pytest.raises(TypeError) as excinfo:
+            EmbeddingNN(num_numeric, invalid_embedding_specs)
+        assert "embedding_specs must be a list" in str(excinfo.value)
+
+    @pytest.mark.it("Raises TypeError if any embedding spec is not a tuple")
+    def test_embedding_spec_not_a_tuple(self):
+        num_numeric = 3
+        invalid_embedding_specs = [(2, 1), [1, 1]]
+        with pytest.raises(TypeError) as excinfo:
+            EmbeddingNN(num_numeric, invalid_embedding_specs)
+        assert "All embedding specs must be tuples" in str(excinfo.value)
+
+    @pytest.mark.it(
+        "Raises TypeError if any embedding spec contains non-integer values"
+    )
+    def test_embedding_spec_contains_non_integers(self):
+        num_numeric = 3
+        invalid_embedding_specs = [(2, 1), (1, "1")]
+        with pytest.raises(TypeError) as excinfo:
+            EmbeddingNN(num_numeric, invalid_embedding_specs)
+        assert "Embedding spec values must be integers" in str(excinfo.value)
+
+    @pytest.mark.it(
+        "Raises ValueError if any embedding spec is not a tuple of length 2"
+    )
+    def test_embedding_spec_tuple_not_length_2(self):
+        num_numeric = 3
+        invalid_embedding_specs = [(2, 1), (1, 1, 1)]
+        with pytest.raises(ValueError) as excinfo:
+            EmbeddingNN(num_numeric, invalid_embedding_specs)
+        assert "Each embedding spec must have exactly two values" in str(excinfo.value)
+
+    @pytest.mark.it(
+        "Raises ValueError if any embedding spec value is not greater than zero"
+    )
+    def test_embedding_spec_not_greater_than_zero(self):
+        num_numeric = 3
+        invalid_embedding_specs = [(2, 1), (1, -1)]
+        with pytest.raises(ValueError) as excinfo:
+            EmbeddingNN(num_numeric, invalid_embedding_specs)
+        assert "Embedding spec values must be > 0" in str(excinfo.value)
+
+    @pytest.mark.it("Raises ValueError if there are no categorical features")
+    def test_no_input_features(self):
+        num_numeric = 3
+        embedding_specs = []
+        with pytest.raises(ValueError) as excinfo:
+            EmbeddingNN(num_numeric, embedding_specs)
+        assert (
+            "EmbeddingNN requires at least one categorical feature (embedding_specs must not be empty)"
+            in str(excinfo.value)
+        )
 
 
 # @pytest.mark.describe("Train NN model function tests")
