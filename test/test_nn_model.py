@@ -3,7 +3,8 @@ import pandas as pd
 import torch.nn as nn
 from pathlib import Path
 from copy import deepcopy
-from src.nn_model import EmbeddingNN
+from dataclasses import dataclass
+from src.nn_model import EmbeddingNN, train_embedding_model
 from src.utils import (
     embeddings_preprocessing,
     split_and_tensorise,
@@ -11,6 +12,13 @@ from src.utils import (
     embedding_specs,
 )
 from src.data_loader import load_data
+
+
+@dataclass(frozen=True)
+class TrainingBatch:
+    X_num: torch.Tensor
+    X_cat: torch.Tensor
+    y: torch.Tensor
 
 
 @pytest.fixture(scope="function")
@@ -27,7 +35,11 @@ def preprocessed_data(cleansed_df):
 def training_data(preprocessed_data):
     X_num, X_cat, y, _ = preprocessed_data
     X_num_train, _, X_cat_train, _, y_train, _ = split_and_tensorise(X_num, X_cat, y)
-    return (X_num_train, X_cat_train, y_train)
+    return TrainingBatch(
+        X_num=X_num_train,
+        X_cat=X_cat_train,
+        y=y_train,
+    )
 
 
 @pytest.fixture(scope="function")
@@ -41,8 +53,7 @@ def example_embedding_specs(preprocessed_data):
 
 @pytest.fixture(scope="function")
 def example_model(example_embedding_specs, training_data):
-    X_num, _, _ = training_data
-    num_numeric = X_num.shape[1]
+    num_numeric = training_data.X_num.shape[1]
     model = EmbeddingNN(num_numeric, example_embedding_specs)
     return model
 
@@ -164,24 +175,21 @@ class TestEmbeddingNNForward:
 
     @pytest.mark.it("Inputs are not mutated")
     def test_inputs_not_mutated(self, example_model, training_data):
-        X_num, X_cat, _ = training_data
-        copy_X_num = deepcopy(X_num)
-        copy_X_cat = deepcopy(X_cat)
-        example_model.forward(X_num, X_cat)
-        assert torch.equal(X_num, copy_X_num)
-        assert torch.equal(X_cat, copy_X_cat)
+        copy_X_num = deepcopy(training_data.X_num)
+        copy_X_cat = deepcopy(training_data.X_cat)
+        example_model.forward(training_data.X_num, training_data.X_cat)
+        assert torch.equal(training_data.X_num, copy_X_num)
+        assert torch.equal(training_data.X_cat, copy_X_cat)
 
     @pytest.mark.it("Output is of expected type")
     def test_output_type(self, example_model, training_data):
-        X_num, X_cat, _ = training_data
-        output = example_model.forward(X_num, X_cat)
+        output = example_model.forward(training_data.X_num, training_data.X_cat)
         assert isinstance(output, torch.Tensor)
 
     @pytest.mark.it("Forward pass output shape is correct")
     def test_model_output_shape(self, training_data, example_model):
-        X_num, X_cat, _ = training_data
-        output = example_model.forward(X_num, X_cat)
-        assert output.shape == (X_num.shape[0], 1)
+        output = example_model.forward(training_data.X_num, training_data.X_cat)
+        assert output.shape == (training_data.X_num.shape[0], 1)
 
 
 @pytest.mark.describe("Embedding NN forward pass exceptions")
@@ -189,149 +197,193 @@ class TestEmbeddingNNForwardExceptions:
 
     @pytest.mark.it("Raises ValueError if there is no categorical features data")
     def test_no_categorical_features_data(self, example_model, training_data):
-        X_num, _, _ = training_data
         invalid_X_cat = torch.tensor([])
         with pytest.raises(ValueError) as excinfo:
-            example_model.forward(X_num, invalid_X_cat)
+            example_model.forward(training_data.X_num, invalid_X_cat)
         assert "X_cat must contain at least one categorical feature" in str(
             excinfo.value
         )
 
     @pytest.mark.it("Raises ValueError if there is no numerical features data")
     def test_no_numerical_features_data(self, example_model, training_data):
-        _, X_cat, _ = training_data
         invalid_X_num = torch.tensor([])
         with pytest.raises(ValueError) as excinfo:
-            example_model.forward(invalid_X_num, X_cat)
+            example_model.forward(invalid_X_num, training_data.X_cat)
         assert "X_num must contain at least one numerical feature" in str(excinfo.value)
 
     @pytest.mark.it(
         "Raises ValueError for incorrect number of categorical features for the model"
     )
     def test_incorrect_number_categorical_features(self, example_model, training_data):
-        X_num, X_cat, _ = training_data
-        invalid_X_cat = X_cat[:, [0, 1]]
-        expected_no_cat = X_cat.shape[1]
+        invalid_X_cat = training_data.X_cat[:, [0, 1]]
+        expected_no_cat = training_data.X_cat.shape[1]
         with pytest.raises(ValueError) as excinfo:
-            example_model.forward(X_num, invalid_X_cat)
+            example_model.forward(training_data.X_num, invalid_X_cat)
         assert f"Expected {expected_no_cat} categorical features, got 2" in str(
             excinfo.value
         )
 
     @pytest.mark.it(
-        "Raises ValueError if number of rows differ between X_num and X_cat"
+        "Raises ValueError if number of rows differ between training_data.X_num and X_cat"
     )
     def test_differing_rows_for_input_datasets(self, example_model, training_data):
-        X_num, X_cat, _ = training_data
-        shortened_X_num = X_num[[0, 1, 2], :]
+        shortened_X_num = training_data.X_num[[0, 1, 2], :]
         with pytest.raises(ValueError) as excinfo:
-            example_model.forward(shortened_X_num, X_cat)
+            example_model.forward(shortened_X_num, training_data.X_cat)
         assert "X_num and X_cat must have the same number of rows" in str(excinfo.value)
 
 
-# @pytest.mark.describe("Train NN model function tests")
-# class TestTrainNNModel:
+@pytest.mark.describe("Train NN model function tests")
+class TestTrainNNModel:
 
-#     @pytest.mark.it("Input tensors are not mutated")
-#     def test_input_tensors_not_mutated(self, training_data):
-#         X_train_tensor, y_train_tensor = training_data
-#         copy_X_train_tensor = X_train_tensor.detach().clone()
-#         copy_y_train_tensor = y_train_tensor.detach().clone()
-#         model = create_nn_model(input_dim=X_train_tensor.shape[1])
-#         train_nn_model(model, X_train_tensor, y_train_tensor)
-#         assert torch.equal(X_train_tensor, copy_X_train_tensor)
-#         assert torch.equal(y_train_tensor, copy_y_train_tensor)
+    @pytest.mark.it("Input tensors are not mutated")
+    def test_input_tensors_not_mutated(self, training_data, example_model):
+        copy_X_num_train = training_data.X_num.detach().clone()
+        copy_X_cat_train = training_data.X_cat.detach().clone()
+        copy_y_train = training_data.y.detach().clone()
+        train_embedding_model(
+            example_model, training_data.X_num, training_data.X_cat, training_data.y
+        )
+        assert torch.equal(training_data.X_num, copy_X_num_train)
+        assert torch.equal(training_data.X_cat, copy_X_cat_train)
+        assert torch.equal(training_data.y, copy_y_train)
 
-#     @pytest.mark.it("Returns expected format of losses")
-#     def test_return_experted_format(self, training_data):
-#         X_train_tensor, y_train_tensor = training_data
-#         model = create_nn_model(input_dim=X_train_tensor.shape[1])
-#         losses_df = train_nn_model(model, X_train_tensor, y_train_tensor, epochs=2)
-#         assert isinstance(losses_df, pd.DataFrame)
-#         assert list(losses_df.columns) == ["epoch", "MSE"]
-#         assert losses_df["MSE"].dtype == float
+    @pytest.mark.it("Puts model in training mode")
+    def test_model_in_training_mode(self, training_data, example_model):
+        train_embedding_model(
+            example_model, training_data.X_num, training_data.X_cat, training_data.y
+        )
+        assert example_model.training is True
 
-#     @pytest.mark.it("Training loop runs without error")
-#     def test_training_loop_runs(self, training_data):
-#         X_train_tensor, y_train_tensor = training_data
-#         model = create_nn_model(input_dim=X_train_tensor.shape[1])
-#         try:
-#             train_nn_model(model, X_train_tensor, y_train_tensor, epochs=3)
-#         except Exception as e:
-#             pytest.fail(f"Training loop failed: {e}")
+    @pytest.mark.it("Returns expected format of losses")
+    def test_return_experted_format(self, training_data, example_model):
+        losses_df = train_embedding_model(
+            example_model,
+            training_data.X_num,
+            training_data.X_cat,
+            training_data.y,
+            epochs=2,
+        )
+        assert isinstance(losses_df, pd.DataFrame)
+        assert list(losses_df.columns) == ["epoch", "MSE"]
+        assert losses_df["MSE"].dtype == float
 
-#     @pytest.mark.it("Loss decreases with training")
-#     def test_training_decreases_loss(self, training_data):
-#         X_train_tensor, y_train_tensor = training_data
-#         model = create_nn_model(input_dim=X_train_tensor.shape[1])
-#         losses_df = train_nn_model(model, X_train_tensor, y_train_tensor, epochs=2)
-#         list_MSE = list(losses_df["MSE"].values)
-#         assert list_MSE[1] < list_MSE[0]
+    @pytest.mark.it("Training loop runs without error")
+    def test_training_loop_runs(self, training_data, example_model):
+        try:
+            train_embedding_model(
+                example_model,
+                training_data.X_num,
+                training_data.X_cat,
+                training_data.y,
+                epochs=3,
+            )
+        except Exception as e:
+            pytest.fail(f"Training loop failed: {e}")
 
-#     @pytest.mark.it("Returns losses in expected interval")
-#     def test_loss_interval(self, training_data):
-#         X_train_tensor, y_train_tensor = training_data
-#         model = create_nn_model(input_dim=X_train_tensor.shape[1])
-#         losses_df = train_nn_model(model, X_train_tensor, y_train_tensor, epochs=20)
-#         assert len(losses_df) == 20 / 2
+    @pytest.mark.it("Loss decreases with training")
+    def test_training_decreases_loss(self, training_data, example_model):
+        losses_df = train_embedding_model(
+            example_model,
+            training_data.X_num,
+            training_data.X_cat,
+            training_data.y,
+            epochs=2,
+        )
+        list_MSE = list(losses_df["MSE"].values)
+        assert list_MSE[1] < list_MSE[0]
+
+    @pytest.mark.it("Returns losses in expected interval")
+    def test_loss_interval(self, training_data, example_model):
+        losses_df = train_embedding_model(
+            example_model,
+            training_data.X_num,
+            training_data.X_cat,
+            training_data.y,
+            epochs=20,
+        )
+        assert len(losses_df) == 20 / 2
 
 
-# @pytest.mark.describe("Train NN model exception handling")
-# class TestTrainNNModelExceptions:
+@pytest.mark.describe("Train NN model exception handling")
+class TestTrainNNModelExceptions:
 
-#     @pytest.mark.it("Raises TypeError if model is not a PyTorch Module instance")
-#     def test_model_not_pytorch_nn(self, training_data):
-#         X_train_tensor, y_train_tensor = training_data
-#         with pytest.raises(TypeError) as excinfo:
-#             train_nn_model("not a PyTorch nn model", X_train_tensor, y_train_tensor)
-#         assert "Input model must be a PyTorch neural network" in str(excinfo.value)
+    @pytest.mark.it("Raises TypeError if model is not a PyTorch Module instance")
+    def test_model_not_pytorch_nn(self, training_data):
+        with pytest.raises(TypeError) as excinfo:
+            train_embedding_model(
+                "not a PyTorch nn model",
+                training_data.X_num,
+                training_data.X_cat,
+                training_data.y,
+            )
+        assert "Input model must be a PyTorch neural network" in str(excinfo.value)
 
-#     @pytest.mark.it("Raises TypeError if input data is not PyTorch Tensors")
-#     def test_input_data_pytorch_tensors(self):
-#         model = create_nn_model(input_dim=10)
-#         with pytest.raises(TypeError) as excinfo:
-#             train_nn_model(model, "not a Tensor", "not a Tensor")
-#         assert "Input training datasets must both be a PyTorch Tensor" in str(
-#             excinfo.value
-#         )
+    @pytest.mark.it("Raises TypeError if input data is not PyTorch Tensors")
+    def test_input_data_pytorch_tensors(self, example_model):
+        with pytest.raises(TypeError) as excinfo:
+            train_embedding_model(
+                example_model, "not a Tensor", "not a Tensor", "not a Tensor"
+            )
+        assert "Input training datasets must all be PyTorch Tensors" in str(
+            excinfo.value
+        )
 
-#     @pytest.mark.it("Raises TyperError if epochs is not an integer")
-#     def test_epochs_not_int(self, training_data):
-#         X_train_tensor, y_train_tensor = training_data
-#         model = create_nn_model(input_dim=X_train_tensor.shape[1])
-#         with pytest.raises(TypeError) as excinfo:
-#             train_nn_model(model, X_train_tensor, y_train_tensor, epochs="ten")
-#         assert "Number of epochs must be an integer" in str(excinfo.value)
+    @pytest.mark.it("Raises TyperError if epochs is not an integer")
+    def test_epochs_not_int(self, training_data, example_model):
+        with pytest.raises(TypeError) as excinfo:
+            train_embedding_model(
+                example_model,
+                training_data.X_num,
+                training_data.X_cat,
+                training_data.y,
+                epochs="ten",
+            )
+        assert "Number of epochs must be an integer" in str(excinfo.value)
 
-#     @pytest.mark.it("Raises TypeError if lr is not a float")
-#     def test_lr_not_float(self, training_data):
-#         X_train_tensor, y_train_tensor = training_data
-#         model = create_nn_model(input_dim=X_train_tensor.shape[1])
-#         with pytest.raises(TypeError) as excinfo:
-#             train_nn_model(model, X_train_tensor, y_train_tensor, lr="1")
-#         assert "Learning rate (lr) must be a float" in str(excinfo.value)
+    @pytest.mark.it("Raises TypeError if lr is not a float")
+    def test_lr_not_float(self, training_data, example_model):
+        with pytest.raises(TypeError) as excinfo:
+            train_embedding_model(
+                example_model,
+                training_data.X_num,
+                training_data.X_cat,
+                training_data.y,
+                lr="1",
+            )
+        assert "Learning rate (lr) must be a float" in str(excinfo.value)
 
-#     @pytest.mark.it("Raises ValueError for mismatched input tensors")
-#     def test_mismatched_input_tensors(self, training_data):
-#         X_train_tensor, y_train_tensor = training_data
-#         model = create_nn_model(input_dim=X_train_tensor.shape[1])
-#         X_train_tensor = X_train_tensor[:10]
-#         with pytest.raises(ValueError) as excinfo:
-#             train_nn_model(model, X_train_tensor, y_train_tensor)
-#         assert "Number of rows in input tensors must match" in str(excinfo.value)
+    @pytest.mark.it("Raises ValueError for mismatched input tensors")
+    def test_mismatched_input_tensors(self, training_data, example_model):
+        X_num_shortened = training_data.X_num[:10]
+        with pytest.raises(ValueError) as excinfo:
+            train_embedding_model(
+                example_model, X_num_shortened, training_data.X_cat, training_data.y
+            )
+        assert "All input tensors must have the same number of rows" in str(
+            excinfo.value
+        )
 
-#     @pytest.mark.it("Raises ValueError if epochs is negative")
-#     def test_negative_epochs(self, training_data):
-#         X_train_tensor, y_train_tensor = training_data
-#         model = create_nn_model(input_dim=X_train_tensor.shape[1])
-#         with pytest.raises(ValueError) as excinfo:
-#             train_nn_model(model, X_train_tensor, y_train_tensor, epochs=-10)
-#         assert "Number of epochs cannot be negative" in str(excinfo.value)
+    @pytest.mark.it("Raises ValueError if epochs is negative")
+    def test_negative_epochs(self, training_data, example_model):
+        with pytest.raises(ValueError) as excinfo:
+            train_embedding_model(
+                example_model,
+                training_data.X_num,
+                training_data.X_cat,
+                training_data.y,
+                epochs=-10,
+            )
+        assert "Number of epochs cannot be negative" in str(excinfo.value)
 
-#     @pytest.mark.it("Raises ValueError if lr is negative")
-#     def test_negative_lr(self, training_data):
-#         X_train_tensor, y_train_tensor = training_data
-#         model = create_nn_model(input_dim=X_train_tensor.shape[1])
-#         with pytest.raises(ValueError) as excinfo:
-#             train_nn_model(model, X_train_tensor, y_train_tensor, lr=-0.001)
-#         assert "Learning rate (lr) cannot be negative" in str(excinfo.value)
+    @pytest.mark.it("Raises ValueError if lr is negative")
+    def test_negative_lr(self, training_data, example_model):
+        with pytest.raises(ValueError) as excinfo:
+            train_embedding_model(
+                example_model,
+                training_data.X_num,
+                training_data.X_cat,
+                training_data.y,
+                lr=-0.001,
+            )
+        assert "Learning rate (lr) cannot be negative" in str(excinfo.value)

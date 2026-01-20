@@ -1,8 +1,7 @@
 import torch.nn as nn
 import torch
-
-# import torch.optim as optim
-# import pandas as pd
+import torch.optim as optim
+import pandas as pd
 
 
 class EmbeddingNN(nn.Module):
@@ -122,96 +121,81 @@ class EmbeddingNN(nn.Module):
         return self.mlp(X_combined)
 
 
-# def create_nn_model(input_dim: int) -> nn.Module:
-#     """
-#     Function to create a PyTorch neural network model with three linear layers.
+def train_embedding_model(
+    model: nn.Module,
+    X_num_train: torch.Tensor,
+    X_cat_train: torch.Tensor,
+    y_train: torch.Tensor,
+    epochs: int = 10,
+    lr: float = 0.001,
+) -> pd.DataFrame:
+    """
+    Function to train a PyTorch neural network model using MSE and Adam optimizer.
 
-#     Args:
-#         input_dim - the input dimension (i.e. the number of input features)
+    Args:
+        model - PyTorch NN model to be trained
+        X_num_train - PyTorch tensor of numerical input features training data
+        X_cat_train - PyTorch tensor of categorical input features training data
+        y_train - PyTorch tensor of target training data
+        epochs(Optional) - number of epochs for training, default value of 10
+        lr(Optional) - learning rate for optimiser model, default value of 0.001
 
-#     Returns:
-#         A PyTorch neural network model with three linear layers and two hidden layers using the ReLU activation function.
-#     """
-#     model = nn.Sequential(
-#         nn.Linear(input_dim, 32),
-#         nn.ReLU(),
-#         nn.Linear(32, 16),
-#         nn.ReLU(),
-#         nn.Linear(16, 1),
-#     )
-#     return model
+    Returns:
+        A pandas Dataframe mapping the MSE loss against the number of epochs.
+        The loss is recorded at every epoch for epochs <=10, otherwise every (epochs // 10) epochs.
 
+    Raises:
+        TypeError if:
+            - input model is not a PyTorch neural network Module
+            - any input Tensor is not a PyTorch Tensor type
+            - epochs is not an integer
+            - lr is not a float
+        ValueError if:
+            - the input Tensor lengths do not match
+            - epochs is negative
+            - lr is negative
+    """
+    if not isinstance(model, nn.Module):
+        raise TypeError("Input model must be a PyTorch neural network")
 
-# def train_nn_model(
-#     model: nn.Module,
-#     X_train_tensor: torch.Tensor,
-#     y_train_tensor: torch.Tensor,
-#     epochs: int = 10,
-#     lr: float = 0.001,
-# ) -> pd.DataFrame:
-#     """
-#     Function to train a PyTorch neural network model using MSE and Adam optimizer.
+    if not all(
+        isinstance(training_data, torch.Tensor)
+        for training_data in (X_num_train, X_cat_train, y_train)
+    ):
+        raise TypeError("Input training datasets must all be PyTorch Tensors")
 
-#     Args:
-#         model - PyTorch NN model to be trained
-#         X_train_tensor - PyTorch tensor of input features training data
-#         y_train_tensor - PyTorch tensor of target training data
-#         epochs(Optional) - number of epochs for training, default value of 10
-#         lr(Optional) - learning rate for optimiser model, default value of 0.001
+    if not isinstance(epochs, int):
+        raise TypeError("Number of epochs must be an integer")
 
-#     Returns:
-#         A pandas Dataframe mapping the MSE loss against the number of epochs.
-#         The loss is recorded at every epoch for epochs <=10, otherwise every (epochs // 10) epochs.
+    if not isinstance(lr, float):
+        raise TypeError("Learning rate (lr) must be a float")
 
-#     Raises:
-#         TypeError if:
-#             - input model is not a PyTorch neural network Module
-#             - either input Tensor is not a PyTorch Tensor type
-#             - epochs is not an integer
-#             - lr is not a float
-#         ValueError if:
-#             - the input Tensor lengths do not match
-#             - epochs is negative
-#             - lr is negative
-#     """
-#     if not isinstance(model, nn.Module):
-#         raise TypeError("Input model must be a PyTorch neural network")
+    target_no_rows = y_train.shape[0]
+    if X_num_train.shape[0] != target_no_rows or X_cat_train.shape[0] != target_no_rows:
+        raise ValueError("All input tensors must have the same number of rows")
 
-#     if not all(
-#         isinstance(training_data, torch.Tensor)
-#         for training_data in (X_train_tensor, y_train_tensor)
-#     ):
-#         raise TypeError("Input training datasets must both be a PyTorch Tensor")
+    if epochs < 0:
+        raise ValueError("Number of epochs cannot be negative")
 
-#     if not isinstance(epochs, int):
-#         raise TypeError("Number of epochs must be an integer")
+    if lr < 0:
+        raise ValueError("Learning rate (lr) cannot be negative")
 
-#     if not isinstance(lr, float):
-#         raise TypeError("Learning rate (lr) must be a float")
+    loss = nn.MSELoss()
+    optimizer = optim.Adam(model.parameters(), lr=lr)
 
-#     if X_train_tensor.shape[0] != y_train_tensor.shape[0]:
-#         raise ValueError("Number of rows in input tensors must match")
+    losses_df = pd.DataFrame(columns=["epoch", "MSE"])
+    interval = 1 if epochs <= 10 else max(1, epochs // 10)
 
-#     if epochs < 0:
-#         raise ValueError("Number of epochs cannot be negative")
+    model.train()
 
-#     if lr < 0:
-#         raise ValueError("Learning rate (lr) cannot be negative")
+    for epoch in range(epochs):
+        predictions = model.forward(X_num_train, X_cat_train)
+        MSE = loss(predictions, y_train)
+        MSE.backward()
+        optimizer.step()
+        optimizer.zero_grad()
 
-#     loss = nn.MSELoss()
-#     optimizer = optim.Adam(model.parameters(), lr=lr)
+        if (epoch + 1) % interval == 0:
+            losses_df.loc[len(losses_df)] = [epoch + 1, MSE.item()]
 
-#     losses_df = pd.DataFrame(columns=["epoch", "MSE"])
-#     interval = 1 if epochs <= 10 else max(1, epochs // 10)
-
-#     for epoch in range(epochs):
-#         predictions = model(X_train_tensor)
-#         MSE = loss(predictions, y_train_tensor)
-#         MSE.backward()
-#         optimizer.step()
-#         optimizer.zero_grad()
-
-#         if (epoch + 1) % interval == 0:
-#             losses_df.loc[len(losses_df)] = [epoch + 1, MSE.item()]
-
-#     return losses_df
+    return losses_df
