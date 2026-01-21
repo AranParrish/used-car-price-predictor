@@ -10,6 +10,7 @@ from src.utils import (
     embeddings_preprocessing,
     split_and_tensorise,
     fastai_embedding_dims,
+    embedding_specs,
 )
 from src.data_loader import load_data
 
@@ -35,6 +36,11 @@ def example_mappings():
         "a": {0: "a", 1: "b"},
         "b": {0: "a", 1: "b", 2: "c", 3: "d"},
     }
+
+
+@pytest.fixture(scope="function")
+def example_embedding_dims(example_mappings):
+    return fastai_embedding_dims(example_mappings)
 
 
 @pytest.mark.describe("Linear Preprocessing function tests")
@@ -175,7 +181,7 @@ class TestEmbeddingsPreprocessing:
         assert isinstance(X_num, pd.DataFrame)
         assert isinstance(X_cat, pd.DataFrame)
         assert isinstance(y, pd.Series)
-        assert isinstance(mappings, Mapping)
+        assert isinstance(mappings, dict)
 
     @pytest.mark.it("Categorical columns are encoded")
     def test_cat_cols_encoded(self, cleansed_df):
@@ -195,13 +201,13 @@ class TestEmbeddingsPreprocessing:
         cleansed_df["rand_bool"] = test_bool.choice(
             [True, False], size=len(cleansed_df)
         )
-        X_num, X_cat, _, mappings = embeddings_preprocessing(
+        X_num, X_cat, _, metadata = embeddings_preprocessing(
             cleansed_df, target_col="price"
         )
         assert "rand_bool" in X_num.columns
         assert X_num["rand_bool"].dtype == "int8"
         assert "rand_bool" not in X_cat.columns
-        assert "rand_bool" not in mappings
+        assert "rand_bool" not in metadata["mappings"]
 
 
 @pytest.mark.describe("Embeddings Preprocessing Exception Handling")
@@ -403,3 +409,65 @@ class TestFastAIEmbeddingDimsExceptions:
         with pytest.raises(ValueError) as excinfo:
             fastai_embedding_dims(example_mappings, max_dim=0)
         assert "max_dim must be a positive integer" in str(excinfo.value)
+
+
+@pytest.mark.describe("Embedding Specs Function Tests")
+class TestEmbeddingSpecs:
+
+    @pytest.mark.it("Inputs not mutated")
+    def test_inputs_not_mutated(self, example_mappings, example_embedding_dims):
+        copy_mappings = deepcopy(example_mappings)
+        copy_embedding_dims = deepcopy(example_embedding_dims)
+        embedding_specs(example_mappings, example_embedding_dims)
+        assert copy_mappings == example_mappings
+        assert copy_embedding_dims == example_embedding_dims
+
+    @pytest.mark.it("Returns expected result")
+    def test_returns_expected_result(self, example_mappings, example_embedding_dims):
+        output = embedding_specs(example_mappings, example_embedding_dims)
+        assert output == [(2, 1), (4, 2)]
+
+
+@pytest.mark.describe("Embedding Specs Exception Handling")
+class TestEmbeddingSpecsExceptions:
+
+    @pytest.mark.it("Raises TypeError if column names map is not a Mapping")
+    def test_input_mappings_invalid_type(self, example_embedding_dims):
+        with pytest.raises(TypeError) as excinfo:
+            embedding_specs("not a mapping", example_embedding_dims)
+        assert "mappings must be a Mapping type" in str(excinfo.value)
+
+    @pytest.mark.it("Raises TypeError if categorical codes is not a Mapping")
+    def test_categorical_codes_is_invalid_type(self, example_embedding_dims):
+        invalid_test_mappings = {
+            "a": 42,
+            "b": {0: "a", 1: "b", 2: "c", 3: "d"},
+        }
+        with pytest.raises(TypeError) as excinfo:
+            embedding_specs(invalid_test_mappings, example_embedding_dims)
+        assert "Each categorical codes map must be a Mapping type" in str(excinfo.value)
+
+    @pytest.mark.it("Raises TypeError if embedding dims is not a list")
+    def test_embedding_dims_not_a_list(self, example_mappings):
+        invalid_embedding_dims = {}
+        with pytest.raises(TypeError) as excinfo:
+            embedding_specs(example_mappings, invalid_embedding_dims)
+        assert "embedding_dims must be a list of integers" in str(excinfo.value)
+
+    @pytest.mark.it(
+        "Raises TypeError if embedding dims list contains non-integer values"
+    )
+    def test_embedding_dims_contains_non_integer_values(self, example_mappings):
+        invalid_embedding_dims = [1, "a"]
+        with pytest.raises(TypeError) as excinfo:
+            embedding_specs(example_mappings, invalid_embedding_dims)
+        assert "embedding_dims must be a list of integers" in str(excinfo.value)
+
+    @pytest.mark.it("Raises ValueError for length mismatch")
+    def test_length_mismatch(self, example_mappings):
+        short_embedding_dims = [1]
+        with pytest.raises(ValueError) as excinfo:
+            embedding_specs(example_mappings, short_embedding_dims)
+        assert "mappings and embedding_dims must be equal in length" in str(
+            excinfo.value
+        )

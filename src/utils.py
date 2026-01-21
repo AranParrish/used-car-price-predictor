@@ -85,7 +85,9 @@ def linear_train_test_datasets(
 
 def embeddings_preprocessing(
     df: pd.DataFrame, target_col: Hashable
-) -> tuple[pd.DataFrame, pd.DataFrame, pd.Series, Mapping[Hashable, Mapping]]:
+) -> tuple[
+    pd.DataFrame, pd.DataFrame, pd.Series, dict[list, list, Mapping[Hashable, Mapping]]
+]:
     """
     Function to preprocess a DataFrame being used for a PyTorch Neural Network ML model.
 
@@ -97,7 +99,7 @@ def embeddings_preprocessing(
 
     Returns:
         A tuple containing a DataFrame of numerical features, a DataFrame of categorical features,
-        a Series containing target values, and a mapping of the categorical features.
+        a Series containing target values, and a dictionary of metadata covering features column names and a mapping of the categorical feature codes.
 
     Raises:
         TypeError if input data is not a pandas DataFrame.
@@ -132,7 +134,13 @@ def embeddings_preprocessing(
         X_cat[col] = cat_series.cat.codes
         mappings[col] = dict(enumerate(cat_series.cat.categories))
 
-    return X_num, X_cat, y, mappings
+    metadata = {
+        "num_cols": list(X_num.columns),
+        "cat_cols": list(X_cat.columns),
+        "mappings": mappings,
+    }
+
+    return X_num, X_cat, y, metadata
 
 
 def split_and_tensorise(
@@ -237,4 +245,45 @@ def fastai_embedding_dims(
     return [
         max(1, min(max_dim, int(len(categories) ** 0.5)))
         for categories in mappings.values()
+    ]
+
+
+def embedding_specs(
+    mappings: Mapping[Hashable, Mapping], embedding_dims: list[int]
+) -> list[tuple[int, int]]:
+    """
+    Function to build embedding specs for input to embedding layers of a PyTorch model.
+
+    Args:
+        mappings - map of column names to associated mappings of categorical codes.
+        embedding_dims - list of embedding dimensions corresponding to the order of mappings.values()
+
+    Returns:
+        A list of tuples pairing the cardinality of each categorical column with its embedding dimensions value.
+
+    Raises:
+        TypeError if:
+            - column names map is not a Mapping type
+            - any categorical codes map is not a Mapping type
+            - embedding_dims is not a list of integers
+        ValueError if mappings and embedding dims differ in length
+    """
+    if not isinstance(mappings, Mapping):
+        raise TypeError("mappings must be a Mapping type")
+
+    if not all(isinstance(mapping, Mapping) for mapping in mappings.values()):
+        raise TypeError("Each categorical codes map must be a Mapping type")
+
+    if not (
+        isinstance(embedding_dims, list)
+        and all(isinstance(value, int) for value in embedding_dims)
+    ):
+        raise TypeError("embedding_dims must be a list of integers")
+
+    if len(mappings) != len(embedding_dims):
+        raise ValueError("mappings and embedding_dims must be equal in length")
+
+    return [
+        (len(categories), embedding_dim)
+        for categories, embedding_dim in zip(mappings.values(), embedding_dims)
     ]
