@@ -5,12 +5,11 @@ import torch
 
 def _to_numpy(y: np.ndarray | pd.Series | torch.Tensor) -> np.ndarray:
     """
-    Convert support array-like inputs to a NumPy array.
-    
+    Converts array-like inputs to a NumPy array.
+
     Raises:
         TypeError if input type is unsupported.
     """
-    
     if isinstance(y, pd.Series):
         return y.to_numpy()
     if isinstance(y, torch.Tensor):
