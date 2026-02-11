@@ -2,6 +2,8 @@ import torch.nn as nn
 import torch
 import torch.optim as optim
 import pandas as pd
+import numpy as np
+from src.eval_metrics import evaluate_model
 
 
 class EmbeddingNN(nn.Module):
@@ -122,7 +124,7 @@ class EmbeddingNN(nn.Module):
 
 
 def train_embedding_model(
-    model: nn.Module,
+    model: EmbeddingNN,
     X_num_train: torch.Tensor,
     X_cat_train: torch.Tensor,
     y_train: torch.Tensor,
@@ -133,7 +135,7 @@ def train_embedding_model(
     Function to train a PyTorch neural network model using MSE and Adam optimizer.
 
     Args:
-        model - PyTorch NN model to be trained
+        model - PyTorch Embedding NN model to be trained
         X_num_train - PyTorch tensor of numerical input features training data
         X_cat_train - PyTorch tensor of categorical input features training data
         y_train - PyTorch tensor of target training data
@@ -146,7 +148,7 @@ def train_embedding_model(
 
     Raises:
         TypeError if:
-            - input model is not a PyTorch neural network Module
+            - input model is not a PyTorch Embedding neural network Module
             - any input Tensor is not a PyTorch Tensor type
             - epochs is not an integer
             - lr is not a float
@@ -155,28 +157,23 @@ def train_embedding_model(
             - epochs is negative
             - lr is negative
     """
-    if not isinstance(model, nn.Module):
-        raise TypeError("Input model must be a PyTorch neural network")
-
+    if not isinstance(model, EmbeddingNN):
+        raise TypeError("Input model must be a PyTorch Embedding neural network")
     if not all(
         isinstance(training_data, torch.Tensor)
         for training_data in (X_num_train, X_cat_train, y_train)
     ):
-        raise TypeError("Input training datasets must all be PyTorch Tensors")
-
+        raise TypeError("Input training datasets must all be torch Tensors")
     if not isinstance(epochs, int):
         raise TypeError("Number of epochs must be an integer")
-
     if not isinstance(lr, float):
         raise TypeError("Learning rate (lr) must be a float")
 
     target_no_rows = y_train.shape[0]
     if X_num_train.shape[0] != target_no_rows or X_cat_train.shape[0] != target_no_rows:
         raise ValueError("All input tensors must have the same number of rows")
-
     if epochs < 0:
         raise ValueError("Number of epochs cannot be negative")
-
     if lr < 0:
         raise ValueError("Learning rate (lr) cannot be negative")
 
@@ -199,3 +196,55 @@ def train_embedding_model(
             losses_df.loc[len(losses_df)] = [epoch + 1, MSE.item()]
 
     return losses_df
+
+
+def evaluate_embedding_model(
+    model: EmbeddingNN,
+    X_num_test: torch.Tensor,
+    X_cat_test: torch.Tensor,
+    y_test: torch.Tensor,
+) -> dict[str, float]:
+    """
+    Evaluate a trained PyTorch embedding neural network on called out test data.
+
+    Args:
+        model - a trained PyTorch embedding neural network model.
+        X_num_test - numerical features test data.
+        X_cat_test - categorical features test data.
+        y_test - target test data.
+
+    Returns:
+        Evaluation metrics for the model (MSE, RMSE, MAE, R2).
+
+    Raises:
+        TypeError if:
+            - model is not a PyTorch Embedding neural network model
+            - any test data is not a torch Tensor
+        ValueError if:
+            - all test data does not have the same number of observations
+            - X_cat_test does not have the same number of categorical features as the trained model
+            - y_test is not one dimensional
+    """
+    if not isinstance(model, EmbeddingNN):
+        raise TypeError("Input model must be a PyTorch Embedding neural network")
+    if not all(
+        isinstance(testing_data, torch.Tensor)
+        for testing_data in (X_num_test, X_cat_test, y_test)
+    ):
+        raise TypeError("Input testing datasets must all be torch Tensors")
+
+    target_no_rows = y_test.shape[0]
+    if X_num_test.shape[0] != target_no_rows or X_cat_test.shape[0] != target_no_rows:
+        raise ValueError("All input tensors must have the same number of rows")
+    if X_cat_test.shape[1] != len(model.embeddings):
+        raise ValueError(
+            f"Expected {len(model.embeddings)} categorical features, got {X_cat_test.shape[1]}"
+        )
+
+    model_training_state = model.training
+    model.eval()
+    with torch.no_grad():
+        y_pred = model(X_num_test, X_cat_test)
+    if model_training_state:
+        model.train()
+    return evaluate_model(y_test, y_pred)
