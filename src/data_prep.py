@@ -1,6 +1,9 @@
 import pandas as pd
 from pathlib import Path
 import logging
+from sklearn.model_selection import train_test_split
+from numpy.random import RandomState
+from typing import Hashable
 
 logger = logging.getLogger(__name__)
 
@@ -81,3 +84,45 @@ def load_data(data_dir: Path) -> pd.DataFrame:
         )
 
     return combined_df
+
+
+def split_datasets(
+    df: pd.DataFrame,
+    target_col: Hashable,
+    test_size: int | float = 0.2,
+    random_seed: RandomState | int = 42,
+) -> tuple[pd.DataFrame, pd.DataFrame, pd.Series, pd.Series]:
+    """
+    Function to split given dataset into test and training sets
+
+    Args:
+        df - Numeric pandas DataFrame containing full dataset (features and target)
+        target_col - column containing target values (i.e. y values, all remaining columns used as features)
+        (Optional) test_size - Proportion of data to use as test set, remaining data used for training set.
+                    Can be given as a proportion (between 0.0 and 1.0) or absolute integer number of samples.
+                    Default value of 0.2.
+        (Optional) random_seed - Seed value to ensure repeatable split of data. Default value of 42.
+
+    Returns:
+        Four datasets as a list - two training sets (of features and target data) and two testing sets (of features and target data)
+
+    Raises:
+        TypeError if input data is not a pandas DataFrame
+        ValueError if:
+            - input target column is not present in the DataFrame
+            - input data does not contain any features
+    """
+    if not isinstance(df, pd.DataFrame):
+        raise TypeError("Input dataset must be a pandas DataFrame")
+
+    if len(df.columns) < 2:
+        raise ValueError(
+            "DataFrame must contain at least one feature column and one target column"
+        )
+    if target_col not in df.columns:
+        raise ValueError("Target column not in input dataset")
+
+    y = df[target_col]
+    X = df.drop(columns=target_col)
+
+    return train_test_split(X, y, test_size=test_size, random_state=random_seed)
