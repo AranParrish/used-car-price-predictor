@@ -1,6 +1,7 @@
 import pytest, torch
 import pandas as pd
 import torch.nn as nn
+import torch.optim as optim
 from pathlib import Path
 from copy import deepcopy
 from dataclasses import dataclass
@@ -267,19 +268,34 @@ class TestTrainNNModel:
             sample_data.X_cat_train,
             sample_data.y_train,
         )
-        assert example_model.training is True
+        assert example_model.training
+
+    @pytest.mark.it("Returns expected format")
+    def test_returns_expected_format(self, example_model, sample_data):
+        expected_keys = {"model_state", "optimizer_state", "total_epochs", "losses"}
+        output = train_embedding_model(
+            example_model,
+            sample_data.X_num_train,
+            sample_data.X_cat_train,
+            sample_data.y_train,
+            epochs=1,
+        )
+        assert isinstance(output, dict)
+        assert all(key in output.keys() for key in expected_keys)
+        assert output["total_epochs"] == 1
 
     @pytest.mark.it("Returns expected format of losses")
     def test_return_experted_format(self, sample_data, example_model):
-        losses_df = train_embedding_model(
+        output = train_embedding_model(
             example_model,
             sample_data.X_num_train,
             sample_data.X_cat_train,
             sample_data.y_train,
             epochs=2,
         )
+        losses_df = output["losses"]
         assert isinstance(losses_df, pd.DataFrame)
-        assert list(losses_df.columns) == ["epoch", "MSE"]
+        assert list(losses_df.columns) == ["epoch", "MSE", "lr"]
         assert losses_df["MSE"].dtype == float
 
     @pytest.mark.it("Training loop runs without error")
@@ -297,26 +313,100 @@ class TestTrainNNModel:
 
     @pytest.mark.it("Loss decreases with training")
     def test_training_decreases_loss(self, sample_data, example_model):
-        losses_df = train_embedding_model(
+        output = train_embedding_model(
             example_model,
             sample_data.X_num_train,
             sample_data.X_cat_train,
             sample_data.y_train,
             epochs=2,
         )
+        losses_df = output["losses"]
         list_MSE = list(losses_df["MSE"].values)
         assert list_MSE[1] < list_MSE[0]
 
     @pytest.mark.it("Returns losses in expected interval")
     def test_loss_interval(self, sample_data, example_model):
-        losses_df = train_embedding_model(
+        output = train_embedding_model(
             example_model,
             sample_data.X_num_train,
             sample_data.X_cat_train,
             sample_data.y_train,
             epochs=20,
         )
+        losses_df = output["losses"]
         assert len(losses_df) == 20 / 2
+
+    @pytest.mark.it("Can resume from existing checkpoint")
+    def test_resume_from_checkpoint(self, example_model, sample_data):
+        optimizer = optim.Adam(example_model.parameters(), lr=0.001)
+        loss = nn.MSELoss()
+        for _ in range(5):
+            predictions = example_model.forward(
+                sample_data.X_num_train, sample_data.X_cat_train
+            )
+            MSE = loss(predictions, sample_data.y_train)
+            MSE.backward()
+            optimizer.step()
+            optimizer.zero_grad()
+
+        test_checkpoint = {
+            "model_state": example_model.state_dict(),
+            "optimizer_state": optimizer.state_dict(),
+            "total_epochs": 5,
+            "losses": pd.DataFrame(),
+        }
+        output = train_embedding_model(
+            example_model,
+            sample_data.X_num_train,
+            sample_data.X_cat_train,
+            sample_data.y_train,
+            epochs=1,
+            checkpoint=test_checkpoint,
+        )
+        optimizer_state = list(output["optimizer_state"]["state"].values())[0]
+        assert output["total_epochs"] == 6
+        assert optimizer_state["step"] == 6
+
+    @pytest.mark.it("Resumes with checkpoint lr if not specified")
+    def test_resume_checkpoint_lr(self, example_model, sample_data):
+        optimizer = optim.Adam(example_model.parameters(), lr=0.005)
+        test_checkpoint = {
+            "model_state": example_model.state_dict(),
+            "optimizer_state": optimizer.state_dict(),
+            "total_epochs": 5,
+            "losses": pd.DataFrame(),
+        }
+        output = train_embedding_model(
+            example_model,
+            sample_data.X_num_train,
+            sample_data.X_cat_train,
+            sample_data.y_train,
+            epochs=1,
+            checkpoint=test_checkpoint,
+        )
+        resumed_lr = output["optimizer_state"]["param_groups"][0]["lr"]
+        assert resumed_lr == 0.005
+
+    @pytest.mark.it("Switches to user defined lr after resuming from checkpoint")
+    def test_switch_user_lr_after_checkpoint(self, example_model, sample_data):
+        optimizer = optim.Adam(example_model.parameters(), lr=0.005)
+        test_checkpoint = {
+            "model_state": example_model.state_dict(),
+            "optimizer_state": optimizer.state_dict(),
+            "total_epochs": 5,
+            "losses": pd.DataFrame(),
+        }
+        output = train_embedding_model(
+            example_model,
+            sample_data.X_num_train,
+            sample_data.X_cat_train,
+            sample_data.y_train,
+            epochs=1,
+            checkpoint=test_checkpoint,
+            lr=0.001,
+        )
+        resumed_lr = output["optimizer_state"]["param_groups"][0]["lr"]
+        assert resumed_lr == 0.001
 
 
 @pytest.mark.describe("Train NN model exception handling")
@@ -367,6 +457,21 @@ class TestTrainNNModelExceptions:
                 lr="1",
             )
         assert "Learning rate (lr) must be a float" in str(excinfo.value)
+
+    @pytest.mark.it("Raises TypeError if checkpoint is not a dict")
+    def test_checkpoint_not_dict(self, example_model, sample_data):
+        invalid_checkpoint = []
+        with pytest.raises(TypeError) as excinfo:
+            train_embedding_model(
+                example_model,
+                sample_data.X_num_train,
+                sample_data.X_cat_train,
+                sample_data.y_train,
+                checkpoint=invalid_checkpoint,
+            )
+        assert "checkpoint must be a dictionary of prior training run data" in str(
+            excinfo.value
+        )
 
     @pytest.mark.it("Raises ValueError for mismatched input tensors")
     def test_mismatched_input_tensors(self, sample_data, example_model):

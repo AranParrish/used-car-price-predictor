@@ -129,8 +129,9 @@ def train_embedding_model(
     X_cat_train: torch.Tensor,
     y_train: torch.Tensor,
     epochs: int = 10,
-    lr: float = 0.001,
-) -> pd.DataFrame:
+    checkpoint: dict = None,
+    lr: float = None,
+) -> dict:
     """
     Function to train a PyTorch neural network model using MSE and Adam optimizer.
 
@@ -140,11 +141,16 @@ def train_embedding_model(
         X_cat_train - PyTorch tensor of categorical input features training data
         y_train - PyTorch tensor of target training data
         epochs(Optional) - number of epochs for training, default value of 10
-        lr(Optional) - learning rate for optimiser model, default value of 0.001
+        checkpoint(Optional) - checkpoint data from a previous training run
+        lr(Optional) - learning rate for optimiser model, defaults to 0.001 if not specified by user or a prior checkpoint
 
     Returns:
-        A pandas Dataframe mapping the MSE loss against the number of epochs.
-        The loss is recorded at every epoch for epochs <=10, otherwise every (epochs // 10) epochs.
+        A dictionary of checkpoint data including:
+            - Model state
+            - Optimizer state
+            - Running total number of epochs
+            - A pandas Dataframe mapping the learning-rate and MSE loss against the number of epochs.
+              These are recorded at every epoch for epochs <=10, otherwise every (epochs // 10) epochs.
 
     Raises:
         TypeError if:
@@ -152,6 +158,7 @@ def train_embedding_model(
             - any input Tensor is not a PyTorch Tensor type
             - epochs is not an integer
             - lr is not a float
+            - checkpoint is not a dictionary
         ValueError if:
             - the input Tensor lengths do not match
             - epochs is negative
@@ -166,26 +173,45 @@ def train_embedding_model(
         raise TypeError("Input training datasets must all be torch Tensors")
     if not isinstance(epochs, int):
         raise TypeError("Number of epochs must be an integer")
-    if not isinstance(lr, float):
+    if lr is not None and not isinstance(lr, float):
         raise TypeError("Learning rate (lr) must be a float")
+    if checkpoint is not None and not isinstance(checkpoint, dict):
+        raise TypeError("checkpoint must be a dictionary of prior training run data")
 
     target_no_rows = y_train.shape[0]
     if X_num_train.shape[0] != target_no_rows or X_cat_train.shape[0] != target_no_rows:
         raise ValueError("All input tensors must have the same number of rows")
     if epochs < 0:
         raise ValueError("Number of epochs cannot be negative")
-    if lr < 0:
+    if lr is not None and lr < 0:
         raise ValueError("Learning rate (lr) cannot be negative")
 
-    loss = nn.MSELoss()
-    optimizer = optim.Adam(model.parameters(), lr=lr)
+    if lr is not None:
+        effective_lr = lr
+    elif checkpoint is not None:
+        effective_lr = checkpoint["optimizer_state"]["param_groups"][0]["lr"]
+    else:
+        effective_lr = 0.001
 
-    losses_df = pd.DataFrame(columns=["epoch", "MSE"])
+    loss = nn.MSELoss()
+    optimizer = optim.Adam(model.parameters(), lr=effective_lr)
+    start_epoch = 0
+
+    if checkpoint is not None:
+        model.load_state_dict(checkpoint["model_state"])
+        optimizer.load_state_dict(checkpoint["optimizer_state"])
+        start_epoch = checkpoint["total_epochs"]
+        for param_group in optimizer.param_groups:
+            param_group["lr"] = effective_lr
+
+    total_epochs = start_epoch + epochs
+
+    losses_df = pd.DataFrame(columns=["epoch", "MSE", "lr"])
     interval = 1 if epochs <= 10 else max(1, epochs // 10)
 
     model.train()
 
-    for epoch in range(epochs):
+    for epoch in range(start_epoch, total_epochs):
         predictions = model.forward(X_num_train, X_cat_train)
         MSE = loss(predictions, y_train)
         MSE.backward()
@@ -193,9 +219,16 @@ def train_embedding_model(
         optimizer.zero_grad()
 
         if (epoch + 1) % interval == 0:
-            losses_df.loc[len(losses_df)] = [epoch + 1, MSE.item()]
+            losses_df.loc[len(losses_df)] = [epoch + 1, MSE.item(), effective_lr]
 
-    return losses_df
+    new_checkpoint = {
+        "model_state": model.state_dict(),
+        "optimizer_state": optimizer.state_dict(),
+        "total_epochs": total_epochs,
+        "losses": losses_df,
+    }
+
+    return new_checkpoint
 
 
 def evaluate_embedding_model(
