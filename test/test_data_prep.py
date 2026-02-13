@@ -37,8 +37,8 @@ def cleansed_df():
     return load_data(Path("data/valid_test_data/"))
 
 
-@pytest.mark.describe("Valid data tests")
-class TestValidData:
+@pytest.mark.describe("Load Data function tests")
+class TestLoadData:
 
     @pytest.mark.it("Returns a dataframe")
     def test_load_data_returns_dataframe(self, valid_test_data):
@@ -70,8 +70,8 @@ class TestValidData:
         assert len(df.columns) == 10
 
 
-@pytest.mark.describe("Error handling")
-class TestErrorHandling:
+@pytest.mark.describe("Load Data exception handling")
+class TestLoadDataExceptions:
 
     @pytest.mark.it("Raises exception for invalid data folder")
     def test_invalid_path(self):
@@ -122,29 +122,25 @@ class TestSplitDatasets:
 
     @pytest.mark.it("Returns expected output structure")
     def test_output_structure(self, cleansed_df):
-        outputs = split_datasets(cleansed_df, target_col="price")
-        assert isinstance(outputs, list)
-        assert len(outputs) == 4
-        X_train, X_test, y_train, y_test = outputs
-        assert all(
-            isinstance(features_data, pd.DataFrame)
-            for features_data in (X_train, X_test)
-        )
-        assert all(
-            isinstance(target_data, pd.Series) for target_data in (y_train, y_test)
-        )
+        expected_level1_keys = {"train", "test"}
+        expected_level2_keys = {"X_num", "X_cat", "y"}
+        output = split_datasets(cleansed_df, target_col="price")
+        assert isinstance(output, dict)
+        assert all(key in expected_level1_keys for key in output.keys())
+        assert all(key in expected_level2_keys for key in output["train"].keys())
+        assert all(key in expected_level2_keys for key in output["test"].keys())
 
     @pytest.mark.it("Returns expected train and test sample sizes")
     def test_train_test_sizes(self, cleansed_df):
-        X_train, X_test, y_train, y_test = split_datasets(
-            cleansed_df, target_col="price", test_size=0.2
-        )
+        output = split_datasets(cleansed_df, target_col="price", test_size=0.2)
         expected_train_size = len(cleansed_df) * 0.8
         expected_test_size = len(cleansed_df) * 0.2
-        assert len(X_train) == expected_train_size
-        assert len(y_train) == expected_train_size
-        assert len(X_test) == expected_test_size
-        assert len(y_test) == expected_test_size
+        assert len(output["train"]["X_num"]) == expected_train_size
+        assert len(output["train"]["X_cat"]) == expected_train_size
+        assert len(output["train"]["y"]) == expected_train_size
+        assert len(output["test"]["X_num"]) == expected_test_size
+        assert len(output["test"]["X_cat"]) == expected_test_size
+        assert len(output["test"]["y"]) == expected_test_size
 
 
 @pytest.mark.describe("Linear Train / Test exception handling")
@@ -152,9 +148,9 @@ class TestSplitDatasetsExceptions:
 
     @pytest.mark.it("Raises TypeError if input is not a DataFrame")
     def test_input_not_a_dataframe(self):
-        invalid_input = []
+        not_a_df = []
         with pytest.raises(TypeError) as excinfo:
-            split_datasets(invalid_input, target_col="price")
+            split_datasets(not_a_df, target_col="price")
         assert "Input dataset must be a pandas DataFrame" in str(excinfo.value)
 
     @pytest.mark.it("Raises ValueError if target col does not exist")
@@ -164,13 +160,33 @@ class TestSplitDatasetsExceptions:
         assert "Target column not in input dataset" in str(excinfo.value)
 
     @pytest.mark.it(
-        "Raises ValueError if DataFrame does not contain at least one feature and one target"
+        "Raises ValueError if DataFrame does not contain at least two feature columns and one target"
     )
     def test_df_without_features(self, cleansed_df):
         invalid_df = cleansed_df[["price"]]
         with pytest.raises(ValueError) as excinfo:
             split_datasets(invalid_df, target_col="price")
         assert (
-            "DataFrame must contain at least one feature column and one target column"
+            "df must contain at least two feature columns and one target column"
             in str(excinfo.value)
+        )
+
+    @pytest.mark.it("Raises ValueError if no numerical features")
+    def test_no_num_features(self, cleansed_df):
+        y = cleansed_df["price"]
+        no_num_features = cleansed_df.select_dtypes(include=["object", "string"])
+        test_df = no_num_features.join(y)
+        with pytest.raises(ValueError) as excinfo:
+            split_datasets(test_df, target_col="price")
+        assert "df must contain both numerical and categorical features" in str(
+            excinfo.value
+        )
+
+    @pytest.mark.it("Raises ValueError if no categorical features")
+    def test_no_cat_features(self, cleansed_df):
+        test_df = cleansed_df.select_dtypes(exclude=["object", "string"])
+        with pytest.raises(ValueError) as excinfo:
+            split_datasets(test_df, target_col="price")
+        assert "df must contain both numerical and categorical features" in str(
+            excinfo.value
         )

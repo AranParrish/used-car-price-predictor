@@ -91,9 +91,9 @@ def split_datasets(
     target_col: Hashable,
     test_size: int | float = 0.2,
     random_seed: RandomState | int = 42,
-) -> tuple[pd.DataFrame, pd.DataFrame, pd.Series, pd.Series]:
+) -> dict[str, dict]:
     """
-    Function to split given dataset into test and training sets
+    Function to split given dataset into test/train sets and then further breakdown into num/cat/target data.
 
     Args:
         df - Numeric pandas DataFrame containing full dataset (features and target)
@@ -104,25 +104,61 @@ def split_datasets(
         (Optional) random_seed - Seed value to ensure repeatable split of data. Default value of 42.
 
     Returns:
-        Four datasets as a list - two training sets (of features and target data) and two testing sets (of features and target data)
+        A nested dictionary splitting by test/train at the first level and then into num/cat/target.
 
     Raises:
         TypeError if input data is not a pandas DataFrame
         ValueError if:
             - input target column is not present in the DataFrame
             - input data does not contain any features
+            - input data does not contain both categorical and numerical features
     """
     if not isinstance(df, pd.DataFrame):
         raise TypeError("Input dataset must be a pandas DataFrame")
 
-    if len(df.columns) < 2:
+    if len(df.columns) < 3:
         raise ValueError(
-            "DataFrame must contain at least one feature column and one target column"
+            "df must contain at least two feature columns and one target column"
         )
     if target_col not in df.columns:
         raise ValueError("Target column not in input dataset")
 
-    y = df[target_col]
+    y = df[target_col].copy()
     X = df.drop(columns=target_col)
+    X_num = X.select_dtypes(exclude=["object", "string"]).copy()
+    X_cat = X.select_dtypes(include=["object", "string"]).copy()
 
-    return train_test_split(X, y, test_size=test_size, random_state=random_seed)
+    if X_num.empty or X_cat.empty:
+        raise ValueError("df must contain both numerical and categorical features")
+
+    X_num_train, X_num_test, X_cat_train, X_cat_test, y_train, y_test = (
+        train_test_split(X_num, X_cat, y, test_size=test_size, random_state=random_seed)
+    )
+
+    return {
+        "train": {
+            "X_num": X_num_train,
+            "X_cat": X_cat_train,
+            "y": y_train,
+        },
+        "test": {
+            "X_num": X_num_test,
+            "X_cat": X_cat_test,
+            "y": y_test,
+        },
+    }
+
+
+# def scale_num_data(
+#     X_train: pd.DataFrame, X_test: pd.DataFrame
+# ) -> tuple[pd.DataFrame, pd.DataFrame]:
+#     """
+#     Function to scale numerical training and testing data.
+
+#     Args:
+#         X_train - cleansed pandas DataFrame of features training data
+#         X_test - cleansed pandas DataFrame of features testing data
+
+#     Returns:
+#     """
+#     pass
