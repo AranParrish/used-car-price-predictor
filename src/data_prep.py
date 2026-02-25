@@ -1,7 +1,9 @@
 import pandas as pd
+import numpy as np
 from pathlib import Path
 import logging
 from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import StandardScaler
 from numpy.random import RandomState
 from typing import Hashable
 
@@ -112,21 +114,28 @@ def split_datasets(
             - input target column is not present in the DataFrame
             - input data does not contain any features
             - input data does not contain both categorical and numerical features
+            - input data contains any invalid rows
     """
     if not isinstance(df, pd.DataFrame):
-        raise TypeError("Input dataset must be a pandas DataFrame")
+        raise TypeError("df must be a pandas DataFrame")
 
     if len(df.columns) < 3:
         raise ValueError(
             "df must contain at least two feature columns and one target column"
         )
     if target_col not in df.columns:
-        raise ValueError("Target column not in input dataset")
+        raise ValueError("Target column not in df")
+    if df.isna().any().any():
+        raise ValueError("df contains invalid rows")
 
     y = df[target_col].copy()
     X = df.drop(columns=target_col)
-    X_num = X.select_dtypes(exclude=["object", "string"]).copy()
-    X_cat = X.select_dtypes(include=["object", "string"]).copy()
+    bool_cols = df.select_dtypes(include=["bool"]).columns
+    if not bool_cols.empty:
+        for col in bool_cols:
+            X[col] = X[col].astype("int16")
+    X_num = X.select_dtypes(include=[np.number]).copy()
+    X_cat = X.select_dtypes(exclude=[np.number]).copy()
 
     if X_num.empty or X_cat.empty:
         raise ValueError("df must contain both numerical and categorical features")
@@ -149,16 +158,47 @@ def split_datasets(
     }
 
 
-# def scale_num_data(
-#     X_train: pd.DataFrame, X_test: pd.DataFrame
-# ) -> tuple[pd.DataFrame, pd.DataFrame]:
-#     """
-#     Function to scale numerical training and testing data.
+def scale_num_data(
+    X_num_train: pd.DataFrame, X_num_test: pd.DataFrame
+) -> tuple[pd.DataFrame, pd.DataFrame, StandardScaler]:
+    """
+    Function to scale numerical training and testing data.
+    Fits only on training data to prevent leakage.
 
-#     Args:
-#         X_train - cleansed pandas DataFrame of features training data
-#         X_test - cleansed pandas DataFrame of features testing data
+    Args:
+        X_train - cleansed pandas DataFrame of numerical features training data
+        X_test - cleansed pandas DataFrame of numerical features testing data
 
-#     Returns:
-#     """
-#     pass
+    Returns:
+        A tuple containing scaled numerical train and test DataFrames as well as the accompanying fitted Scaler.
+
+    Raises:
+        TypeError if either input is not a pandas DataFrame.
+        TypeError if either input contains non-numeric features.
+        ValueErrof if either input contains invalid rows.
+        ValueError if there are differing columns in X_num_train and X_num_test.
+    """
+    if not all(isinstance(input, pd.DataFrame) for input in (X_num_train, X_num_test)):
+        raise TypeError("Inputs must both be pandas DataFrames")
+    if (
+        not X_num_train.select_dtypes(exclude=[np.number]).empty
+        or not X_num_test.select_dtypes(exclude=[np.number]).empty
+    ):
+        raise TypeError("Inputs must only contain numeric features")
+
+    if X_num_train.isna().any().any() or X_num_test.isna().any().any():
+        raise ValueError("Inputs must not contain invalid rows")
+    if not X_num_train.columns.equals(X_num_test.columns):
+        raise ValueError("Inputs contain differing columns or column order")
+
+    cols_to_scale = [
+        col for col in X_num_train.columns if X_num_train[col].nunique() > 2
+    ]
+
+    X_num_train_scaled = X_num_train.copy()
+    X_num_test_scaled = X_num_test.copy()
+    scaler = StandardScaler()
+    X_num_train_scaled[cols_to_scale] = scaler.fit_transform(X_num_train[cols_to_scale])
+    X_num_test_scaled[cols_to_scale] = scaler.transform(X_num_test[cols_to_scale])
+
+    return X_num_train_scaled, X_num_test_scaled, scaler

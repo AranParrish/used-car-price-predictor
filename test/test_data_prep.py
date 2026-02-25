@@ -1,9 +1,11 @@
 import pytest
 from pathlib import Path
+import numpy as np
 import pandas as pd
 import pandas.api.types as ptypes
+from sklearn.preprocessing import StandardScaler
 
-from src.data_prep import load_data, split_datasets
+from src.data_prep import load_data, split_datasets, scale_num_data
 
 
 @pytest.fixture(scope="function")
@@ -35,6 +37,11 @@ def expected_columns():
 @pytest.fixture(scope="function")
 def cleansed_df():
     return load_data(Path("data/valid_test_data/"))
+
+
+@pytest.fixture(scope="function")
+def split_data(cleansed_df):
+    return split_datasets(cleansed_df, target_col="price")
 
 
 @pytest.mark.describe("Load Data function tests")
@@ -142,6 +149,32 @@ class TestSplitDatasets:
         assert len(output["test"]["X_cat"]) == expected_test_size
         assert len(output["test"]["y"]) == expected_test_size
 
+    @pytest.mark.it("Returns expected numerical and categorical features")
+    def test_num_cat_as_expected(self, cleansed_df):
+        expected_num_cols = {"year", "mileage", "tax", "mpg", "engineSize"}
+        expected_cat_cols = {"brand", "model", "transmission", "fuelType"}
+        output = split_datasets(cleansed_df, target_col="price")
+        X_num_train_cols = set(output["train"]["X_num"].columns)
+        X_num_test_cols = set(output["test"]["X_num"].columns)
+        X_cat_train_cols = set(output["train"]["X_cat"].columns)
+        X_cat_test_cols = set(output["test"]["X_cat"].columns)
+        assert X_num_train_cols == X_num_test_cols == expected_num_cols
+        assert X_cat_train_cols == X_cat_test_cols == expected_cat_cols
+
+    @pytest.mark.it("Converts bool features to numeric")
+    def test_bool_to_numeric(self):
+        test_df = pd.DataFrame(
+            {
+                "is_automatic": [True, False, True],
+                "mileage": [100, 200, 300],
+                "brand": ["Ford", "BMW", "Ford"],
+                "price": [10, 20, 30],
+            }
+        )
+        output = split_datasets(test_df, target_col="price", test_size=1)
+        assert "is_automatic" in output["train"]["X_num"].columns
+        assert output["train"]["X_num"]["is_automatic"].dtype == "int16"
+
 
 @pytest.mark.describe("Linear Train / Test exception handling")
 class TestSplitDatasetsExceptions:
@@ -151,13 +184,13 @@ class TestSplitDatasetsExceptions:
         not_a_df = []
         with pytest.raises(TypeError) as excinfo:
             split_datasets(not_a_df, target_col="price")
-        assert "Input dataset must be a pandas DataFrame" in str(excinfo.value)
+        assert "df must be a pandas DataFrame" in str(excinfo.value)
 
     @pytest.mark.it("Raises ValueError if target col does not exist")
     def test_target_col_does_not_exist(self, cleansed_df):
         with pytest.raises(ValueError) as excinfo:
             split_datasets(cleansed_df, target_col="invalid")
-        assert "Target column not in input dataset" in str(excinfo.value)
+        assert "Target column not in df" in str(excinfo.value)
 
     @pytest.mark.it(
         "Raises ValueError if DataFrame does not contain at least two feature columns and one target"
@@ -190,3 +223,137 @@ class TestSplitDatasetsExceptions:
         assert "df must contain both numerical and categorical features" in str(
             excinfo.value
         )
+
+    @pytest.mark.it("Raises ValueError if df contains invalid rows")
+    def test_df_contains_invalid_rows(self):
+        invalid_df = pd.read_csv("data/invalid_test_data/ford.csv")
+        with pytest.raises(ValueError) as excinfo:
+            split_datasets(invalid_df, target_col="price")
+        assert "df contains invalid rows" in str(excinfo.value)
+
+
+@pytest.mark.describe("Scale num data function tests")
+class TestScaleNumData:
+
+    @pytest.mark.it("Inputs are not mutated")
+    def test_inputs_not_mutated(self, split_data):
+        copy_X_num_train = split_data["train"]["X_num"].copy()
+        copy_X_num_test = split_data["test"]["X_num"].copy()
+        scale_num_data(split_data["train"]["X_num"], split_data["test"]["X_num"])
+        pd.testing.assert_frame_equal(copy_X_num_train, split_data["train"]["X_num"])
+        pd.testing.assert_frame_equal(copy_X_num_test, split_data["test"]["X_num"])
+
+    @pytest.mark.it("Returns expected output structure")
+    def test_output_structure(self, split_data):
+        output = scale_num_data(
+            split_data["train"]["X_num"], split_data["test"]["X_num"]
+        )
+        X_num_train_scaled, X_num_test_scaled, scalar = output
+        assert isinstance(output, tuple)
+        assert isinstance(X_num_train_scaled, pd.DataFrame)
+        assert isinstance(X_num_test_scaled, pd.DataFrame)
+        assert isinstance(scalar, StandardScaler)
+
+    @pytest.mark.it("Scales numerical train features")
+    def test_scales_num_features(self, split_data):
+        X_num_train_scaled, _, _ = scale_num_data(
+            split_data["train"]["X_num"], split_data["test"]["X_num"]
+        )
+        for col in X_num_train_scaled.columns:
+            # Skip any binary columns
+            if X_num_train_scaled[col].nunique() > 2:
+                assert np.isclose(
+                    X_num_train_scaled[col].mean(), 0.0
+                ), f"Column {col} was not centered."
+                assert np.isclose(
+                    X_num_train_scaled[col].std(ddof=0), 1.0
+                ), f"Column {col} does not have unit variance."
+
+    @pytest.mark.it("Binary columns unaltered")
+    def test_binary_unaltered(self):
+        test_df = pd.DataFrame(
+            {
+                "mileage": [100, 200, 300],
+                "is_auto": [1.0, 0.0, 1.0],
+            }
+        )
+        X_num_train_scaled, X_num_test_scaled, _ = scale_num_data(test_df, test_df)
+        assert X_num_train_scaled["is_auto"].iloc[0] == 1.0
+        assert X_num_train_scaled["is_auto"].nunique() == 2
+        assert X_num_test_scaled["is_auto"].iloc[0] == 1.0
+        assert X_num_test_scaled["is_auto"].nunique() == 2
+
+    @pytest.mark.it("No leakage of test data")
+    def test_no_test_data_leakage(self):
+        # Train mean = 100.0
+        example_X_num_train = pd.DataFrame({"mileage": [90.0, 100.0, 110.0]})
+        # Test mean = 0.0
+        example_X_num_test = pd.DataFrame({"mileage": [-10.0, 0.0, 10.0]})
+        X_num_train_scaled, X_num_test_scaled, scaler = scale_num_data(
+            example_X_num_train, example_X_num_test
+        )
+        assert np.isclose(X_num_train_scaled["mileage"].mean(), 0.0)
+        assert not np.isclose(X_num_test_scaled["mileage"].mean(), 0.0)
+        assert np.isclose(scaler.mean_[0], 100.0)
+
+
+@pytest.mark.describe("Scale num data exception handling")
+class TestScaleNumDataExceptions:
+
+    @pytest.mark.it("Raises TypeError if inputs not DataFrames")
+    def test_inputs_not_dataframes(self):
+        invalid_X_num_train = {}
+        invalid_X_num_test = {}
+        with pytest.raises(TypeError) as excinfo:
+            scale_num_data(invalid_X_num_train, invalid_X_num_test)
+        assert "Inputs must both be pandas DataFrames" in str(excinfo.value)
+
+    @pytest.mark.it("Raises TypeError for categorical features in any input")
+    def test_cat_features_input(self):
+        X_num_train_strings = pd.DataFrame({"brand": ["Ford", "BMW"]})
+        X_num_test_strings = pd.DataFrame({"brand": ["Ford", "BMW"]})
+        with pytest.raises(TypeError) as excinfo:
+            scale_num_data(X_num_train_strings, X_num_test_strings)
+        assert "Inputs must only contain numeric features" in str(excinfo.value)
+
+    @pytest.mark.it("Raises ValueError for invalid rows in train data")
+    def test_invalid_rows_train_data(self, split_data):
+        invalid_df = pd.read_csv("data/invalid_test_data/ford.csv")
+        invalid_X_num_train = invalid_df.select_dtypes(include=[np.number])
+        with pytest.raises(ValueError) as excinfo:
+            scale_num_data(invalid_X_num_train, split_data["test"]["X_num"])
+        assert "Inputs must not contain invalid rows" in str(excinfo.value)
+
+    @pytest.mark.it("Raises ValueError for invalid rows in test data")
+    def test_invalid_rows_test_data(self, split_data):
+        invalid_df = pd.read_csv("data/invalid_test_data/ford.csv")
+        invalid_X_num_test = invalid_df.select_dtypes(include=[np.number])
+        with pytest.raises(ValueError) as excinfo:
+            scale_num_data(split_data["train"]["X_num"], invalid_X_num_test)
+        assert "Inputs must not contain invalid rows" in str(excinfo.value)
+
+    @pytest.mark.it("Raises ValueError if inputs contain differing number of columns")
+    def test_differing_num_columns(self, split_data):
+        invalid_X_num_test = split_data["test"]["X_num"].drop(columns="mileage")
+        with pytest.raises(ValueError) as excinfo:
+            scale_num_data(split_data["train"]["X_num"], invalid_X_num_test)
+        assert "Inputs contain differing columns or column order" in str(excinfo.value)
+
+    @pytest.mark.it("Raises ValueError if inputs contain differing columns names")
+    def test_differing_columns_names(self, split_data):
+        invalid_X_num_test = split_data["test"]["X_num"].rename(
+            columns={"mileage": "odometer"}, inplace=False
+        )
+        with pytest.raises(ValueError) as excinfo:
+            scale_num_data(split_data["train"]["X_num"], invalid_X_num_test)
+        assert "Inputs contain differing columns or column order" in str(excinfo.value)
+
+    @pytest.mark.it("Raises ValueError if column ordering differs for inputs")
+    def test_differing_column_order(self, split_data):
+        X_num_train = split_data["train"]["X_num"].copy()
+        col_names = list(X_num_train.columns)
+        col_names[0], col_names[1] = col_names[1], col_names[0]
+        reordered_X_num_train = X_num_train.loc[:, col_names]
+        with pytest.raises(ValueError) as excinfo:
+            scale_num_data(reordered_X_num_train, split_data["test"]["X_num"])
+        assert "Inputs contain differing columns or column order" in str(excinfo.value)
