@@ -1,28 +1,20 @@
 import pytest, torch
 import pandas as pd
 import numpy as np
-from collections.abc import Mapping
 from pathlib import Path
 from copy import deepcopy
 from src.utils import (
-    linear_train_test_datasets,
-    linear_preprocessing,
     embeddings_preprocessing,
     split_and_tensorise,
     fastai_embedding_dims,
     embedding_specs,
 )
-from src.data_loader import load_data
+from src.data_prep import load_data
 
 
 @pytest.fixture(scope="function")
 def cleansed_df():
     return load_data(Path("data/valid_test_data/"))
-
-
-@pytest.fixture(scope="function")
-def linear_processed_df(cleansed_df):
-    return linear_preprocessing(cleansed_df)
 
 
 @pytest.fixture(scope="function")
@@ -41,127 +33,6 @@ def example_mappings():
 @pytest.fixture(scope="function")
 def example_embedding_dims(example_mappings):
     return fastai_embedding_dims(example_mappings)
-
-
-@pytest.mark.describe("Linear Preprocessing function tests")
-class TestLinearPreprocessing:
-
-    @pytest.mark.it("Input is not mutated")
-    def test_input_not_mutated(self, cleansed_df):
-        copy_df = cleansed_df.copy(deep=True)
-        linear_preprocessing(cleansed_df)
-        pd.testing.assert_frame_equal(cleansed_df, copy_df)
-
-    @pytest.mark.it("Returns a new DataFrame")
-    def test_returns_new_dataframe(self, cleansed_df):
-        output = linear_preprocessing(cleansed_df)
-        assert isinstance(output, pd.DataFrame)
-        assert output is not cleansed_df
-
-    @pytest.mark.it("Removes categorical columns")
-    def test_removes_categorical_columns(self, cleansed_df):
-        output = linear_preprocessing(cleansed_df)
-        assert output.select_dtypes(include=["object", "string", "boolean"]).empty
-
-    @pytest.mark.it("Dataset with no categorical columns returned unchanged")
-    def test_no_categorical_returned(self, cleansed_df):
-        numeric_only = cleansed_df[["price"]]
-        output = linear_preprocessing(numeric_only)
-        pd.testing.assert_frame_equal(output, numeric_only)
-
-
-@pytest.mark.describe("Linear Preprocessing exception handling")
-class TestLinearPreprocessingExceptions:
-
-    @pytest.mark.it("Raises TypeError if input data is not a DataFrame")
-    def test_typeerror_not_a_dataframe(self):
-        with pytest.raises(TypeError) as excinfo:
-            linear_preprocessing("not a DataFrame")
-        assert "Input must be a pandas DataFrame" in str(excinfo.value)
-
-    @pytest.mark.it("Raises ValueError if input data contains invalid rows")
-    def test_valueerror_invalid_rows(self):
-        invalid_data = Path("data/invalid_test_data/ford.csv")
-        df = pd.read_csv(invalid_data)
-        df["brand"] = "Ford"
-        with pytest.raises(ValueError) as excinfo:
-            linear_preprocessing(df)
-        assert "Input data contains invalid rows" in str(excinfo.value)
-
-
-@pytest.mark.describe("Linear Train / Test function tests")
-class TestLinearTrainTestSplit:
-
-    @pytest.mark.it("Input is not mutated")
-    def test_input_not_mutated(self, linear_processed_df):
-        copy_df = linear_processed_df.copy(deep=True)
-        linear_train_test_datasets(
-            linear_processed_df, target_col="price", test_size=0.2, random_seed=42
-        )
-        pd.testing.assert_frame_equal(linear_processed_df, copy_df)
-
-    @pytest.mark.it("Returns expected output structure")
-    def test_output_structure(self, linear_processed_df):
-        outputs = linear_train_test_datasets(linear_processed_df, target_col="price")
-        assert isinstance(outputs, list)
-        assert len(outputs) == 4
-        X_train, X_test, y_train, y_test = outputs
-        assert all(
-            isinstance(features_data, pd.DataFrame)
-            for features_data in (X_train, X_test)
-        )
-        assert all(
-            isinstance(target_data, pd.Series) for target_data in (y_train, y_test)
-        )
-
-    @pytest.mark.it("Returns expected train and test sample sizes")
-    def test_train_test_sizes(self, linear_processed_df):
-        X_train, X_test, y_train, y_test = linear_train_test_datasets(
-            linear_processed_df, target_col="price", test_size=0.2
-        )
-        expected_train_size = len(linear_processed_df) * 0.8
-        expected_test_size = len(linear_processed_df) * 0.2
-        assert len(X_train) == expected_train_size
-        assert len(y_train) == expected_train_size
-        assert len(X_test) == expected_test_size
-        assert len(y_test) == expected_test_size
-
-
-@pytest.mark.describe("Linear Train / Test exception handling")
-class TestLinearTrainTestExceptions:
-
-    @pytest.mark.it("Raises TypeError if input is not a DataFrame")
-    def test_input_not_a_dataframe(self):
-        invalid_input = []
-        with pytest.raises(TypeError) as excinfo:
-            linear_train_test_datasets(invalid_input, target_col="price")
-        assert "Input dataset must be a pandas DataFrame" in str(excinfo.value)
-
-    @pytest.mark.it("Raises ValueError if input DataFrame contains non-numeric columns")
-    def test_input_non_numeric_cols(self, cleansed_df):
-        with pytest.raises(ValueError) as excinfo:
-            linear_train_test_datasets(cleansed_df, target_col="price")
-        assert "Input DataFrame must not contain non-numeric columns" in str(
-            excinfo.value
-        )
-
-    @pytest.mark.it("Raises ValueError if target col does not exist")
-    def test_target_col_does_not_exist(self, linear_processed_df):
-        with pytest.raises(ValueError) as excinfo:
-            linear_train_test_datasets(linear_processed_df, target_col="invalid")
-        assert "Target column not in input dataset" in str(excinfo.value)
-
-    @pytest.mark.it(
-        "Raises ValueError if DataFrame does not contain at least one feature and one target"
-    )
-    def test_df_without_features(self, linear_processed_df):
-        invalid_df = linear_processed_df[["price"]]
-        with pytest.raises(ValueError) as excinfo:
-            linear_train_test_datasets(invalid_df, target_col="price")
-        assert (
-            "DataFrame must contain at least one feature column and one target column"
-            in str(excinfo.value)
-        )
 
 
 @pytest.mark.describe("Embeddings preprocessing function tests")
@@ -267,8 +138,8 @@ class TestSplitTensorise:
     @pytest.mark.it("Returns expected output shapes")
     def test_returns_expected_shapes(self, embeddings_preprocessing_data):
         X_num, X_cat, y, _ = embeddings_preprocessing_data
-        expected_train_size = X_num.shape[0] * 0.8
-        expected_test_size = X_num.shape[0] * 0.2
+        expected_train_size = round(X_num.shape[0] * 0.8)
+        expected_test_size = round(X_num.shape[0] * 0.2)
         X_num_train, X_num_test, X_cat_train, X_cat_test, y_train, y_test = (
             split_and_tensorise(X_num, X_cat, y)
         )
