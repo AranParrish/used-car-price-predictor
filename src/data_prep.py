@@ -98,7 +98,7 @@ def split_datasets(
     Function to split given dataset into test/train sets and then further breakdown into num/cat/target data.
 
     Args:
-        df - Numeric pandas DataFrame containing full dataset (features and target)
+        df - cleansed pandas DataFrame containing full dataset (features and target)
         target_col - column containing target values (i.e. y values, all remaining columns used as features)
         (Optional) test_size - Proportion of data to use as test set, remaining data used for training set.
                     Can be given as a proportion (between 0.0 and 1.0) or absolute integer number of samples.
