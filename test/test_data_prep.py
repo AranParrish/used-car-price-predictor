@@ -140,8 +140,8 @@ class TestSplitDatasets:
     @pytest.mark.it("Returns expected train and test sample sizes")
     def test_train_test_sizes(self, cleansed_df):
         output = split_datasets(cleansed_df, target_col="price", test_size=0.2)
-        expected_train_size = len(cleansed_df) * 0.8
-        expected_test_size = len(cleansed_df) * 0.2
+        expected_train_size = round(len(cleansed_df) * 0.8)
+        expected_test_size = round(len(cleansed_df) * 0.2)
         assert len(output["train"]["X_num"]) == expected_train_size
         assert len(output["train"]["X_cat"]) == expected_train_size
         assert len(output["train"]["y"]) == expected_train_size
