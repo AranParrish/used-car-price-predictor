@@ -144,6 +144,9 @@ def split_datasets(
         train_test_split(X_num, X_cat, y, test_size=test_size, random_state=random_seed)
     )
 
+    for output in (X_num_train, X_num_test, X_cat_train, X_cat_test, y_train, y_test):
+        output = output.reset_index(drop=True, inplace=True)
+
     return {
         "train": {
             "X_num": X_num_train,

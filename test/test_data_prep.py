@@ -175,6 +175,20 @@ class TestSplitDatasets:
         assert "is_automatic" in output["train"]["X_num"].columns
         assert output["train"]["X_num"]["is_automatic"].dtype == "int16"
 
+    @pytest.mark.it("All indices are reset and sequential")
+    def test_indices_reset(self, cleansed_df):
+        output = split_datasets(cleansed_df, target_col="price")
+        for dataset in ["train", "test"]:
+            X_num = output[dataset]["X_num"]
+            X_cat = output[dataset]["X_cat"]
+            y = output[dataset]["y"]
+            assert X_num.index[0] == X_cat.index[0] == y.index[0] == 0
+            assert isinstance(X_num.index, pd.RangeIndex)
+            assert isinstance(X_cat.index, pd.RangeIndex)
+            assert isinstance(y.index, pd.RangeIndex)
+            pd.testing.assert_index_equal(X_num.index, X_cat.index)
+            pd.testing.assert_index_equal(X_num.index, y.index)
+
 
 @pytest.mark.describe("Linear Train / Test exception handling")
 class TestSplitDatasetsExceptions:
