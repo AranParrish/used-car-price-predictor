@@ -107,40 +107,45 @@ def linear_preprocessing(
     return X_train, X_test, ohe
 
 
-# def linear_reg_model(X_train: pd.DataFrame, y_train: pd.Series) -> LinearRegression:
-#     """
-#     Function to create a linear regression model trained on the input data.
+def linear_reg_model(X_train: pd.DataFrame, y_train: pd.Series) -> LinearRegression:
+    """
+    Function to create a linear regression model trained on the input data.
 
-#     Args:
-#         X_train - features training set (i.e. model inputs)
-#         y_train - target training set (i.e. expected outputs mapped to the inputs)
+    Args:
+        X_train - features training set (i.e. model inputs)
+        y_train - target training set (i.e. expected outputs mapped to the inputs)
 
-#     Returns:
-#         A trained instance of a linear regression model.
+    Returns:
+        A trained instance of a linear regression model.
 
-#     Raises:
-#         TypeError if:
-#             - X_train is not a pandas DataFrame
-#             - y_train is not a pandas Series
-#         ValueError if:
-#             - either input contains non-numeric values
-#             - either input contains missing values
-#     """
-#     if not isinstance(X_train, pd.DataFrame):
-#         raise TypeError("X_train must be a pandas DataFrame")
-#     if not isinstance(y_train, pd.Series):
-#         raise TypeError("y_train must be a pandas Series")
+    Raises:
+        TypeError if:
+            - X_train is not a pandas DataFrame
+            - y_train is not a pandas Series
+        ValueError if:
+            - either input contains non-numeric values
+            - either input contains missing values
+            - input lengths are mismatched
+    """
+    if not isinstance(X_train, pd.DataFrame):
+        raise TypeError("X_train must be a pandas DataFrame")
+    if not isinstance(y_train, pd.Series):
+        raise TypeError("y_train must be a pandas Series")
 
-#     if not X_train.select_dtypes(exclude=["number"]).empty:
-#         raise ValueError("X_train must only contain numeric values")
-#     if not pd.api.types.is_numeric_dtype(y_train):
-#         raise ValueError("y_train must only contain numeric values")
-#     if any(data.isna().any().any() for data in (X_train, y_train)):
-#         raise ValueError("Input data must not contain missing values")
+    if len(X_train) != len(y_train):
+        raise ValueError("X_train and y_train contain differing number of observations")
+    if not X_train.select_dtypes(exclude=["number"]).empty:
+        raise ValueError("X_train must only contain numeric values")
+    if not pd.api.types.is_numeric_dtype(y_train):
+        raise ValueError("y_train must only contain numeric values")
+    if X_train.isna().any().any():
+        raise ValueError("X_train contains missing values")
+    if y_train.isna().any().any():
+        raise ValueError("y_train contains missing values")
 
-#     model = LinearRegression()
-#     model.fit(X_train, y_train)
-#     return model
+    model = LinearRegression()
+    model.fit(X_train, y_train)
+    return model
 
 
 # def evaluate_linear_model(

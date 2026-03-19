@@ -1,16 +1,15 @@
-import pytest, warnings
+import pytest
 import pandas as pd
 import numpy as np
 from sklearn.preprocessing import OneHotEncoder
 from sklearn.linear_model import LinearRegression
-from sklearn.model_selection import train_test_split
 from pathlib import Path
 from copy import deepcopy
 from unittest.mock import MagicMock
 
 from src.linear_model import (
     linear_preprocessing,
-    # linear_reg_model,
+    linear_reg_model,
     # evaluate_linear_model,
 )
 from src.data_prep import (
@@ -37,14 +36,22 @@ def preproc_test_data():
     }
 
 
-# @pytest.fixture(scope="function")
-# def linear_processed_df(cleansed_df):
-#     return linear_preprocessing(cleansed_df)
+@pytest.fixture(scope="function")
+def model_data(preproc_test_data):
+    y_train = preproc_test_data.pop("y_train")
+    y_test = preproc_test_data.pop("y_test")
+    X_train, X_test, _ = linear_preprocessing(**preproc_test_data)
+    return {
+        "X_train": X_train,
+        "X_test": X_test,
+        "y_train": y_train,
+        "y_test": y_test,
+    }
 
 
-# @pytest.fixture(scope="function")
-# def sample_model(sample_data):
-#     return linear_reg_model(sample_data.X_train, sample_data.y_train)
+@pytest.fixture(scope="function")
+def sample_model(model_data):
+    return linear_reg_model(model_data["X_train"], model_data["y_train"])
 
 
 @pytest.mark.describe("Linear Preprocessing function tests")
@@ -168,10 +175,10 @@ class TestLinearPreprocessingExceptions:
     def test_input_not_dataframe(self, preproc_test_data, preproc_params):
         preproc_test_data.pop("y_train")
         preproc_test_data.pop("y_test")
-        sample_data = deepcopy(preproc_test_data)
-        sample_data[preproc_params] = "not a DataFrame"
+        model_data = deepcopy(preproc_test_data)
+        model_data[preproc_params] = "not a DataFrame"
         with pytest.raises(TypeError) as excinfo:
-            linear_preprocessing(**sample_data)
+            linear_preprocessing(**model_data)
         assert "must be a pandas DataFrame" in str(excinfo.value)
 
     @pytest.mark.parametrize(
@@ -185,12 +192,10 @@ class TestLinearPreprocessingExceptions:
     def test_non_numeric_in_num_features(self, preproc_test_data, num_params):
         preproc_test_data.pop("y_train")
         preproc_test_data.pop("y_test")
-        sample_data = deepcopy(preproc_test_data)
-        sample_data[num_params]["year"] = sample_data[num_params]["year"].astype(
-            "string"
-        )
+        model_data = deepcopy(preproc_test_data)
+        model_data[num_params]["year"] = model_data[num_params]["year"].astype("string")
         with pytest.raises(TypeError, match="must not contain non-numeric values"):
-            linear_preprocessing(**sample_data)
+            linear_preprocessing(**model_data)
 
     @pytest.mark.parametrize(
         "cat_params",
@@ -203,10 +208,10 @@ class TestLinearPreprocessingExceptions:
     def test_x_cat_train_numeric(self, preproc_test_data, cat_params):
         preproc_test_data.pop("y_train")
         preproc_test_data.pop("y_test")
-        sample_data = deepcopy(preproc_test_data)
-        sample_data[cat_params]["year"] = sample_data["X_num_train_scaled"]["year"]
+        model_data = deepcopy(preproc_test_data)
+        model_data[cat_params]["year"] = model_data["X_num_train_scaled"]["year"]
         with pytest.raises(TypeError, match="must not contain numeric values"):
-            linear_preprocessing(**sample_data)
+            linear_preprocessing(**model_data)
 
     @pytest.mark.parametrize(
         "preproc_params",
@@ -221,10 +226,10 @@ class TestLinearPreprocessingExceptions:
     def test_input_empty_dataframe(self, preproc_test_data, preproc_params):
         preproc_test_data.pop("y_train")
         preproc_test_data.pop("y_test")
-        sample_data = deepcopy(preproc_test_data)
-        sample_data[preproc_params] = pd.DataFrame()
+        model_data = deepcopy(preproc_test_data)
+        model_data[preproc_params] = pd.DataFrame()
         with pytest.raises(ValueError, match="is an empty DataFrame"):
-            linear_preprocessing(**sample_data)
+            linear_preprocessing(**model_data)
 
     @pytest.mark.parametrize(
         "num_params",
@@ -237,10 +242,10 @@ class TestLinearPreprocessingExceptions:
     def test_invalid_values_num_features(self, preproc_test_data, num_params):
         preproc_test_data.pop("y_train")
         preproc_test_data.pop("y_test")
-        sample_data = deepcopy(preproc_test_data)
-        sample_data[num_params].iloc[0, 0] = np.nan
+        model_data = deepcopy(preproc_test_data)
+        model_data[num_params].iloc[0, 0] = np.nan
         with pytest.raises(ValueError, match="contains invalid values"):
-            linear_preprocessing(**sample_data)
+            linear_preprocessing(**model_data)
 
     @pytest.mark.parametrize(
         "cat_params",
@@ -253,10 +258,10 @@ class TestLinearPreprocessingExceptions:
     def test_invalid_values_cat_features(self, preproc_test_data, cat_params):
         preproc_test_data.pop("y_train")
         preproc_test_data.pop("y_test")
-        sample_data = deepcopy(preproc_test_data)
-        sample_data[cat_params].iloc[0, 0] = " "
+        model_data = deepcopy(preproc_test_data)
+        model_data[cat_params].iloc[0, 0] = " "
         with pytest.raises(ValueError, match="contains empty strings or whitespace"):
-            linear_preprocessing(**sample_data)
+            linear_preprocessing(**model_data)
 
     @pytest.mark.parametrize(
         "cat_params",
@@ -269,150 +274,162 @@ class TestLinearPreprocessingExceptions:
     def test_input_contains_object_dtype(self, preproc_test_data, cat_params):
         preproc_test_data.pop("y_train")
         preproc_test_data.pop("y_test")
-        sample_data = deepcopy(preproc_test_data)
-        sample_data[cat_params]["model"] = sample_data[cat_params]["model"].astype(
-            object
-        )
+        model_data = deepcopy(preproc_test_data)
+        model_data[cat_params]["model"] = model_data[cat_params]["model"].astype(object)
         with pytest.raises(
             TypeError,
             match="contains generic 'object' dtypes: cast to an explicit type first",
         ):
-            linear_preprocessing(**sample_data)
+            linear_preprocessing(**model_data)
 
     @pytest.mark.it("Raises ValueError for mismatched columns in numerical data")
     def test_mismatched_num_columns(self, preproc_test_data):
         preproc_test_data.pop("y_train")
         preproc_test_data.pop("y_test")
-        sample_data = deepcopy(preproc_test_data)
-        sample_data["X_num_train_scaled"].drop(
-            sample_data["X_num_train_scaled"].columns[0], axis=1, inplace=True
+        model_data = deepcopy(preproc_test_data)
+        model_data["X_num_train_scaled"].drop(
+            model_data["X_num_train_scaled"].columns[0], axis=1, inplace=True
         )
         with pytest.raises(ValueError, match="columns do not match"):
-            linear_preprocessing(**sample_data)
+            linear_preprocessing(**model_data)
 
     @pytest.mark.it("Raises ValueError for mismatched columns in categorical data")
     def test_mismatched_cat_columns(self, preproc_test_data):
         preproc_test_data.pop("y_train")
         preproc_test_data.pop("y_test")
-        sample_data = deepcopy(preproc_test_data)
-        sample_data["X_cat_train"].drop(
-            sample_data["X_cat_train"].columns[0], axis=1, inplace=True
+        model_data = deepcopy(preproc_test_data)
+        model_data["X_cat_train"].drop(
+            model_data["X_cat_train"].columns[0], axis=1, inplace=True
         )
         with pytest.raises(ValueError, match="columns do not match"):
-            linear_preprocessing(**sample_data)
+            linear_preprocessing(**model_data)
 
     @pytest.mark.it("Raises ValueError for mismatched training data indices")
     def test_mismatched_train_indices(self, preproc_test_data):
         preproc_test_data.pop("y_train")
         preproc_test_data.pop("y_test")
-        sample_data = deepcopy(preproc_test_data)
-        sample_data["X_num_train_scaled"].rename(index={0: 50000}, inplace=True)
+        model_data = deepcopy(preproc_test_data)
+        model_data["X_num_train_scaled"].rename(index={0: 50000}, inplace=True)
         with pytest.raises(ValueError, match="indices do not match"):
-            linear_preprocessing(**sample_data)
+            linear_preprocessing(**model_data)
 
     @pytest.mark.it("Raises ValueError for mismatched testing data indices")
     def test_mismatched_test_indices(self, preproc_test_data):
         preproc_test_data.pop("y_train")
         preproc_test_data.pop("y_test")
-        sample_data = deepcopy(preproc_test_data)
-        sample_data["X_num_test_scaled"].rename(index={0: 50000}, inplace=True)
+        model_data = deepcopy(preproc_test_data)
+        model_data["X_num_test_scaled"].rename(index={0: 50000}, inplace=True)
         with pytest.raises(ValueError, match="indices do not match"):
-            linear_preprocessing(**sample_data)
+            linear_preprocessing(**model_data)
 
 
-# @pytest.mark.describe("Linear regression model function tests")
-# class TestLinearRegFunction:
+@pytest.mark.describe("Linear regression model function tests")
+class TestLinearRegFunction:
 
-#     @pytest.mark.it("Inputs are not mutated")
-#     def test_inputs_not_mutated(self, sample_data):
-#         copy_X_train = sample_data.X_train.copy(deep=True)
-#         copy_y_train = sample_data.y_train.copy(deep=True)
-#         linear_reg_model(sample_data.X_train, sample_data.y_train)
-#         pd.testing.assert_frame_equal(copy_X_train, sample_data.X_train)
-#         pd.testing.assert_series_equal(copy_y_train, sample_data.y_train)
+    @pytest.mark.it("Inputs are not mutated")
+    def test_inputs_not_mutated(self, model_data):
+        copy_X_train = model_data["X_train"].copy(deep=True)
+        copy_y_train = model_data["y_train"].copy(deep=True)
+        linear_reg_model(model_data["X_train"], model_data["y_train"])
+        pd.testing.assert_frame_equal(copy_X_train, model_data["X_train"])
+        pd.testing.assert_series_equal(copy_y_train, model_data["y_train"])
 
-#     @pytest.mark.it("Returns a linear regression model")
-#     def test_returns_linear_regression_model(self, sample_data):
-#         output = linear_reg_model(sample_data.X_train, sample_data.y_train)
-#         assert isinstance(output, LinearRegression)
+    @pytest.mark.it("Returns a linear regression model")
+    def test_returns_linear_regression_model(self, model_data):
+        output = linear_reg_model(model_data["X_train"], model_data["y_train"])
+        assert isinstance(output, LinearRegression)
 
-#     @pytest.mark.it("Returns a trained linear regression model")
-#     def test_returns_trained_model(self, sample_data):
-#         output = linear_reg_model(sample_data.X_train, sample_data.y_train)
-#         assert hasattr(output, "coef_")
+    @pytest.mark.it("Returns a trained linear regression model")
+    def test_returns_trained_model(self, model_data):
+        output = linear_reg_model(model_data["X_train"], model_data["y_train"])
+        assert hasattr(output, "coef_")
 
-#     @pytest.mark.it("Trained model produces predictions with expected shape")
-#     def test_trained_model_predictions_shape(self, sample_data):
-#         output = linear_reg_model(sample_data.X_train, sample_data.y_train)
-#         preds = output.predict(sample_data.X_test)
-#         assert preds.shape == sample_data.y_test.shape
-#         assert len(preds) == len(sample_data.X_test)
+    @pytest.mark.it("Trained model produces predictions with expected shape")
+    def test_trained_model_predictions_shape(self, model_data):
+        output = linear_reg_model(model_data["X_train"], model_data["y_train"])
+        preds = output.predict(model_data["X_test"])
+        assert len(preds) == len(model_data["y_test"])
+        assert len(preds) == len(model_data["X_test"])
 
 
-# @pytest.mark.describe("Linear regression model exception handling")
-# class TestLinearRegExceptions:
+@pytest.mark.describe("Linear regression model exception handling")
+class TestLinearRegExceptions:
 
-#     @pytest.mark.it("Raises TypeError if features data is not DataFrames")
-#     def test_typeerror_features_not_a_dataframe(self):
-#         test_y_train = pd.Series()
-#         with pytest.raises(TypeError) as excinfo:
-#             linear_reg_model("not a DataFrame", test_y_train)
-#         assert "X_train must be a pandas DataFrame" in str(excinfo.value)
+    @pytest.mark.it("Raises TypeError if features data is not DataFrames")
+    def test_features_not_a_dataframe(self):
+        test_y_train = pd.Series()
+        with pytest.raises(TypeError) as excinfo:
+            linear_reg_model("not a DataFrame", test_y_train)
+        assert "X_train must be a pandas DataFrame" in str(excinfo.value)
 
-#     @pytest.mark.it("Raises TypeError if target data is not a series")
-#     def test_typeerror_target_not_a_series(self):
-#         test_X_train = pd.DataFrame()
-#         with pytest.raises(TypeError) as excinfo:
-#             linear_reg_model(test_X_train, "not a series")
-#         assert "y_train must be a pandas Series" in str(excinfo.value)
+    @pytest.mark.it("Raises TypeError if target data is not a series")
+    def test_target_not_a_series(self):
+        test_X_train = pd.DataFrame()
+        with pytest.raises(TypeError) as excinfo:
+            linear_reg_model(test_X_train, "not a series")
+        assert "y_train must be a pandas Series" in str(excinfo.value)
 
-#     @pytest.mark.it("Raises ValueError if an features data contains non-numeric values")
-#     def test_valueerror_non_numeric_in_features(self):
-#         df = load_data(Path("data/valid_test_data/"))
-#         y = df["price"]
-#         X = df.drop(columns="price")
-#         invalid_X_train, _, invalid_y_train, _ = train_test_split(X, y, test_size=0.2)
-#         with pytest.raises(ValueError) as excinfo:
-#             linear_reg_model(invalid_X_train, invalid_y_train)
-#         assert "X_train must only contain numeric values" in str(excinfo.value)
+    @pytest.mark.it("Raises ValueError if features data contains non-numeric values")
+    def test_non_numeric_in_features(self):
+        invalid_X_train = pd.DataFrame({"mileage": ["10000", "20000", "30000"]})
+        y_train = pd.Series([10, 20, 30])
+        with pytest.raises(
+            ValueError, match="X_train must only contain numeric values"
+        ):
+            linear_reg_model(invalid_X_train, y_train)
 
-#     @pytest.mark.it("Raises ValueError if target is non-numeric")
-#     def test_valueerror_non_numeric_target(self, sample_data):
-#         df = load_data(Path("data/valid_test_data/"))
-#         invalid_y_train = df["model"]
-#         with pytest.raises(ValueError) as excinfo:
-#             linear_reg_model(sample_data.X_train, invalid_y_train)
-#         assert "y_train must only contain numeric values" in str(excinfo.value)
+    @pytest.mark.it("Raises ValueError if target is non-numeric")
+    def test_non_numeric_target(self):
+        X_train = pd.DataFrame({"mileage": [10000, 20000, 30000]})
+        invalid_y_train = pd.Series(["10", "20", "30"])
+        with pytest.raises(
+            ValueError, match="y_train must only contain numeric values"
+        ):
+            linear_reg_model(X_train, invalid_y_train)
 
-#     @pytest.mark.it("Raises ValueError if data contains missing values")
-#     def test_missing_values(self, sample_data):
-#         invalid_data = Path("data/invalid_test_data/ford.csv")
-#         df = pd.read_csv(invalid_data)
-#         invalid_X_train = df[["year", "engineSize"]]
-#         with pytest.raises(ValueError) as excinfo:
-#             linear_reg_model(invalid_X_train, sample_data.y_train)
-#         assert "Input data must not contain missing values" in str(excinfo.value)
+    @pytest.mark.it("Raises ValueError if X_train contains missing values")
+    def test_x_missing_values(self):
+        invalid_X_train = pd.DataFrame({"mileage": [10000, np.nan, 30000]})
+        y_train = pd.Series([10, 20, 30])
+        with pytest.raises(ValueError, match="X_train contains missing values"):
+            linear_reg_model(invalid_X_train, y_train)
+
+    @pytest.mark.it("Raises ValueError if y_train contains missing values")
+    def test_y_missing_values(self):
+        X_train = pd.DataFrame({"mileage": [10000, 20000, 30000]})
+        invalid_y_train = pd.Series([10, np.nan, 30])
+        with pytest.raises(ValueError, match="y_train contains missing values"):
+            linear_reg_model(X_train, invalid_y_train)
+
+    @pytest.mark.it("Raises ValueError for mismatched input lengths")
+    def test_mismatched_input_lengths(self, model_data):
+        X_train = model_data["X_train"]
+        shortened_y_train = model_data["y_train"].iloc[:-1]
+        with pytest.raises(
+            ValueError, match="contain differing number of observations"
+        ):
+            linear_reg_model(X_train, shortened_y_train)
 
 
 # @pytest.mark.describe("Evaluate Linear Model function tests")
 # class TestEvaluateLinearModel:
 
 #     @pytest.mark.it("Inputs not mutated")
-#     def test_inputs_not_mutated(self, sample_model, sample_data):
-#         copy_X_test = sample_data.X_test.copy(deep=True)
-#         copy_y_test = sample_data.y_test.copy(deep=True)
+#     def test_inputs_not_mutated(self, sample_model, model_data):
+#         copy_X_test = model_data["X_test"].copy(deep=True)
+#         copy_y_test = model_data["y_test"].copy(deep=True)
 #         copy_model_coef = sample_model.coef_.copy()
 #         copy_model_intercept = sample_model.intercept_
-#         evaluate_linear_model(sample_model, sample_data.X_test, sample_data.y_test)
-#         pd.testing.assert_frame_equal(sample_data.X_test, copy_X_test)
-#         pd.testing.assert_series_equal(sample_data.y_test, copy_y_test)
+#         evaluate_linear_model(sample_model, model_data["X_test"], model_data["y_test"])
+#         pd.testing.assert_frame_equal(model_data["X_test"], copy_X_test)
+#         pd.testing.assert_series_equal(model_data["y_test"], copy_y_test)
 #         assert np.allclose(sample_model.coef_, copy_model_coef)
 #         assert sample_model.intercept_ == copy_model_intercept
 
 #     @pytest.mark.it("Returns expected format")
-#     def test_returns_expected_format(self, sample_model, sample_data):
+#     def test_returns_expected_format(self, sample_model, model_data):
 #         output = evaluate_linear_model(
-#             sample_model, sample_data.X_test, sample_data.y_test
+#             sample_model, model_data["X_test"], model_data["y_test"]
 #         )
 #         assert isinstance(output, dict)
 #         assert all(
@@ -421,22 +438,22 @@ class TestLinearPreprocessingExceptions:
 #         )
 
 #     @pytest.mark.it("Outputs expected metrics")
-#     def test_returns_expected_metrics(self, sample_model, sample_data):
+#     def test_returns_expected_metrics(self, sample_model, model_data):
 #         expected_metrics = {"mse", "rmse", "mae", "r2"}
 #         output = evaluate_linear_model(
-#             sample_model, sample_data.X_test, sample_data.y_test
+#             sample_model, model_data["X_test"], model_data["y_test"]
 #         )
 #         assert all(key in output.keys() for key in expected_metrics)
 
 #     @pytest.mark.it("Predict only called once")
-#     def test_predict_called_once(self, sample_data):
+#     def test_predict_called_once(self, model_data):
 #         model = MagicMock()
-#         model.predict.return_value = np.zeros(len(sample_data.y_test))
-#         evaluate_linear_model(model, sample_data.X_test, sample_data.y_test)
-#         model.predict.assert_called_once_with(sample_data.X_test)
+#         model.predict.return_value = np.zeros(len(model_data["y_test"]))
+#         evaluate_linear_model(model, model_data["X_test"], model_data["y_test"])
+#         model.predict.assert_called_once_with(model_data["X_test"])
 
 #     @pytest.mark.it("Works with column vector predictions")
-#     def test_column_vector_predictions(self, sample_data):
+#     def test_column_vector_predictions(self, model_data):
 #         class DummyModel:
 #             def predict(self, X):
 #                 return np.array([[1.0], [2.0], [3.0]])
@@ -452,33 +469,33 @@ class TestLinearPreprocessingExceptions:
 # class TestEvaluateLinearModelExceptions:
 
 #     @pytest.mark.it("Raises TypeError model does not have a predict method")
-#     def test_model_not_sklearn_linear(self, sample_data):
+#     def test_model_not_sklearn_linear(self, model_data):
 #         test_model = "not a model"
 #         with pytest.raises(TypeError) as excinfo:
-#             evaluate_linear_model(test_model, sample_data.X_test, sample_data.y_test)
+#             evaluate_linear_model(test_model, model_data["X_test"], model_data["y_test"])
 #         assert "Model must be an sklearn regressor" in str(excinfo.value)
 
 #     @pytest.mark.it("Raises TypeError if X_test is not a pandas DataFrame")
-#     def test_xtest_not_a_dataframe(self, sample_model, sample_data):
+#     def test_xtest_not_a_dataframe(self, sample_model, model_data):
 #         invalid_X_test = "not a dataframe"
 #         with pytest.raises(TypeError) as excinfo:
-#             evaluate_linear_model(sample_model, invalid_X_test, sample_data.y_test)
+#             evaluate_linear_model(sample_model, invalid_X_test, model_data["y_test"])
 #         assert "X_test must be a pandas DataFrame" in str(excinfo.value)
 
 #     @pytest.mark.it(
 #         "Raises TypeError if y_test is not a pandas Series or 1D numpy array"
 #     )
-#     def test_ytest_not_1d_array(self, sample_model, sample_data):
+#     def test_ytest_not_1d_array(self, sample_model, model_data):
 #         invalid_y_test = "not array-like"
 #         with pytest.raises(TypeError) as excinfo:
-#             evaluate_linear_model(sample_model, sample_data.X_test, invalid_y_test)
+#             evaluate_linear_model(sample_model, model_data["X_test"], invalid_y_test)
 #         assert "y_test must be a pandas Series or 1D numpy array" in str(excinfo.value)
 
 #     @pytest.mark.it("Raises ValueError if X_test and y_test lengths differ")
-#     def test_differing_test_data_lengths(self, sample_model, sample_data):
-#         shortened_X_test = sample_data.X_test.head(5)
+#     def test_differing_test_data_lengths(self, sample_model, model_data):
+#         shortened_X_test = model_data["X_test"].head(5)
 #         with pytest.raises(ValueError) as excinfo:
-#             evaluate_linear_model(sample_model, shortened_X_test, sample_data.y_test)
+#             evaluate_linear_model(sample_model, shortened_X_test, model_data["y_test"])
 #         assert "X_test and y_test must have the same number of observations" in str(
 #             excinfo.value
 #         )
