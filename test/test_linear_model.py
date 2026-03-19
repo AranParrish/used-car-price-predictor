@@ -32,6 +32,8 @@ def preproc_test_data():
         "X_num_test_scaled": X_num_test_scaled,
         "X_cat_train": split_data["train"]["X_cat"],
         "X_cat_test": split_data["test"]["X_cat"],
+        "y_train": split_data["train"]["y"],
+        "y_test": split_data["test"]["y"],
     }
 
 
@@ -50,6 +52,8 @@ class TestLinearPreprocessing:
 
     @pytest.mark.it("Inputs are not mutated")
     def test_inputs_not_mutated(self, preproc_test_data):
+        preproc_test_data.pop("y_train")
+        preproc_test_data.pop("y_test")
         copy_X_num_train_scaled = preproc_test_data["X_num_train_scaled"].copy(
             deep=True
         )
@@ -70,6 +74,8 @@ class TestLinearPreprocessing:
 
     @pytest.mark.it("Returns expected output structure")
     def test_output_structure(self, preproc_test_data):
+        preproc_test_data.pop("y_train")
+        preproc_test_data.pop("y_test")
         X_train, X_test, ohe = linear_preprocessing(**preproc_test_data)
         assert isinstance(X_train, pd.DataFrame)
         assert isinstance(X_test, pd.DataFrame)
@@ -160,6 +166,8 @@ class TestLinearPreprocessingExceptions:
     )
     @pytest.mark.it("Raises TypeError if input is not a DataFrame")
     def test_input_not_dataframe(self, preproc_test_data, preproc_params):
+        preproc_test_data.pop("y_train")
+        preproc_test_data.pop("y_test")
         sample_data = deepcopy(preproc_test_data)
         sample_data[preproc_params] = "not a DataFrame"
         with pytest.raises(TypeError) as excinfo:
@@ -175,6 +183,8 @@ class TestLinearPreprocessingExceptions:
     )
     @pytest.mark.it("Raises TypeError for non-numeric values in numerical features")
     def test_non_numeric_in_num_features(self, preproc_test_data, num_params):
+        preproc_test_data.pop("y_train")
+        preproc_test_data.pop("y_test")
         sample_data = deepcopy(preproc_test_data)
         sample_data[num_params]["year"] = sample_data[num_params]["year"].astype(
             "string"
@@ -191,6 +201,8 @@ class TestLinearPreprocessingExceptions:
     )
     @pytest.mark.it("Raises TypeError for numeric values in categorical features")
     def test_x_cat_train_numeric(self, preproc_test_data, cat_params):
+        preproc_test_data.pop("y_train")
+        preproc_test_data.pop("y_test")
         sample_data = deepcopy(preproc_test_data)
         sample_data[cat_params]["year"] = sample_data["X_num_train_scaled"]["year"]
         with pytest.raises(TypeError, match="must not contain numeric values"):
@@ -207,6 +219,8 @@ class TestLinearPreprocessingExceptions:
     )
     @pytest.mark.it("Raises ValueError if input is an empty DataFrame")
     def test_input_empty_dataframe(self, preproc_test_data, preproc_params):
+        preproc_test_data.pop("y_train")
+        preproc_test_data.pop("y_test")
         sample_data = deepcopy(preproc_test_data)
         sample_data[preproc_params] = pd.DataFrame()
         with pytest.raises(ValueError, match="is an empty DataFrame"):
@@ -221,6 +235,8 @@ class TestLinearPreprocessingExceptions:
     )
     @pytest.mark.it("Raises ValueError for invalid values in numeric features")
     def test_invalid_values_num_features(self, preproc_test_data, num_params):
+        preproc_test_data.pop("y_train")
+        preproc_test_data.pop("y_test")
         sample_data = deepcopy(preproc_test_data)
         sample_data[num_params].iloc[0, 0] = np.nan
         with pytest.raises(ValueError, match="contains invalid values"):
@@ -235,6 +251,8 @@ class TestLinearPreprocessingExceptions:
     )
     @pytest.mark.it("Raises ValueError for invalid values in categorical features")
     def test_invalid_values_cat_features(self, preproc_test_data, cat_params):
+        preproc_test_data.pop("y_train")
+        preproc_test_data.pop("y_test")
         sample_data = deepcopy(preproc_test_data)
         sample_data[cat_params].iloc[0, 0] = " "
         with pytest.raises(ValueError, match="contains empty strings or whitespace"):
@@ -249,6 +267,8 @@ class TestLinearPreprocessingExceptions:
     )
     @pytest.mark.it("Raises TypeError for object dtype in categorical features")
     def test_input_contains_object_dtype(self, preproc_test_data, cat_params):
+        preproc_test_data.pop("y_train")
+        preproc_test_data.pop("y_test")
         sample_data = deepcopy(preproc_test_data)
         sample_data[cat_params]["model"] = sample_data[cat_params]["model"].astype(
             object
@@ -261,6 +281,8 @@ class TestLinearPreprocessingExceptions:
 
     @pytest.mark.it("Raises ValueError for mismatched columns in numerical data")
     def test_mismatched_num_columns(self, preproc_test_data):
+        preproc_test_data.pop("y_train")
+        preproc_test_data.pop("y_test")
         sample_data = deepcopy(preproc_test_data)
         sample_data["X_num_train_scaled"].drop(
             sample_data["X_num_train_scaled"].columns[0], axis=1, inplace=True
@@ -270,6 +292,8 @@ class TestLinearPreprocessingExceptions:
 
     @pytest.mark.it("Raises ValueError for mismatched columns in categorical data")
     def test_mismatched_cat_columns(self, preproc_test_data):
+        preproc_test_data.pop("y_train")
+        preproc_test_data.pop("y_test")
         sample_data = deepcopy(preproc_test_data)
         sample_data["X_cat_train"].drop(
             sample_data["X_cat_train"].columns[0], axis=1, inplace=True
@@ -279,6 +303,8 @@ class TestLinearPreprocessingExceptions:
 
     @pytest.mark.it("Raises ValueError for mismatched training data indices")
     def test_mismatched_train_indices(self, preproc_test_data):
+        preproc_test_data.pop("y_train")
+        preproc_test_data.pop("y_test")
         sample_data = deepcopy(preproc_test_data)
         sample_data["X_num_train_scaled"].rename(index={0: 50000}, inplace=True)
         with pytest.raises(ValueError, match="indices do not match"):
@@ -286,131 +312,12 @@ class TestLinearPreprocessingExceptions:
 
     @pytest.mark.it("Raises ValueError for mismatched testing data indices")
     def test_mismatched_test_indices(self, preproc_test_data):
+        preproc_test_data.pop("y_train")
+        preproc_test_data.pop("y_test")
         sample_data = deepcopy(preproc_test_data)
         sample_data["X_num_test_scaled"].rename(index={0: 50000}, inplace=True)
         with pytest.raises(ValueError, match="indices do not match"):
             linear_preprocessing(**sample_data)
-
-
-# @pytest.mark.describe("Linear Preprocessing function tests")
-# class TestLinearPreprocessing:
-
-#     @pytest.mark.it("Input is not mutated")
-#     def test_input_not_mutated(self, cleansed_df):
-#         copy_df = cleansed_df.copy(deep=True)
-#         linear_preprocessing(cleansed_df)
-#         pd.testing.assert_frame_equal(cleansed_df, copy_df)
-
-#     @pytest.mark.it("Returns a new DataFrame")
-#     def test_returns_new_dataframe(self, cleansed_df):
-#         output = linear_preprocessing(cleansed_df)
-#         assert isinstance(output, pd.DataFrame)
-#         assert output is not cleansed_df
-
-#     @pytest.mark.it("Removes categorical columns")
-#     def test_removes_categorical_columns(self, cleansed_df):
-#         output = linear_preprocessing(cleansed_df)
-#         assert output.select_dtypes(include=["object", "string", "boolean"]).empty
-
-#     @pytest.mark.it("Dataset with no categorical columns returned unchanged")
-#     def test_no_categorical_returned(self, cleansed_df):
-#         numeric_only = cleansed_df[["price"]]
-#         output = linear_preprocessing(numeric_only)
-#         pd.testing.assert_frame_equal(output, numeric_only)
-
-
-# @pytest.mark.describe("Linear Preprocessing exception handling")
-# class TestLinearPreprocessingExceptions:
-
-#     @pytest.mark.it("Raises TypeError if input data is not a DataFrame")
-#     def test_typeerror_not_a_dataframe(self):
-#         with pytest.raises(TypeError) as excinfo:
-#             linear_preprocessing("not a DataFrame")
-#         assert "Input must be a pandas DataFrame" in str(excinfo.value)
-
-#     @pytest.mark.it("Raises ValueError if input data contains invalid rows")
-#     def test_valueerror_invalid_rows(self):
-#         invalid_data = Path("data/invalid_test_data/ford.csv")
-#         df = pd.read_csv(invalid_data)
-#         df["brand"] = "Ford"
-#         with pytest.raises(ValueError) as excinfo:
-#             linear_preprocessing(df)
-#         assert "Input data contains invalid rows" in str(excinfo.value)
-
-
-# @pytest.mark.describe("Linear Train / Test function tests")
-# class TestLinearTrainTestSplit:
-
-#     @pytest.mark.it("Input is not mutated")
-#     def test_input_not_mutated(self, linear_processed_df):
-#         copy_df = linear_processed_df.copy(deep=True)
-#         linear_train_test_datasets(
-#             linear_processed_df, target_col="price", test_size=0.2, random_seed=42
-#         )
-#         pd.testing.assert_frame_equal(linear_processed_df, copy_df)
-
-#     @pytest.mark.it("Returns expected output structure")
-#     def test_output_structure(self, linear_processed_df):
-#         outputs = linear_train_test_datasets(linear_processed_df, target_col="price")
-#         assert isinstance(outputs, list)
-#         assert len(outputs) == 4
-#         X_train, X_test, y_train, y_test = outputs
-#         assert all(
-#             isinstance(features_data, pd.DataFrame)
-#             for features_data in (X_train, X_test)
-#         )
-#         assert all(
-#             isinstance(target_data, pd.Series) for target_data in (y_train, y_test)
-#         )
-
-#     @pytest.mark.it("Returns expected train and test sample sizes")
-#     def test_train_test_sizes(self, linear_processed_df):
-#         X_train, X_test, y_train, y_test = linear_train_test_datasets(
-#             linear_processed_df, target_col="price", test_size=0.2
-#         )
-#         expected_train_size = len(linear_processed_df) * 0.8
-#         expected_test_size = len(linear_processed_df) * 0.2
-#         assert len(X_train) == expected_train_size
-#         assert len(y_train) == expected_train_size
-#         assert len(X_test) == expected_test_size
-#         assert len(y_test) == expected_test_size
-
-
-# @pytest.mark.describe("Linear Train / Test exception handling")
-# class TestLinearTrainTestExceptions:
-
-#     @pytest.mark.it("Raises TypeError if input is not a DataFrame")
-#     def test_input_not_a_dataframe(self):
-#         invalid_input = []
-#         with pytest.raises(TypeError) as excinfo:
-#             linear_train_test_datasets(invalid_input, target_col="price")
-#         assert "Input dataset must be a pandas DataFrame" in str(excinfo.value)
-
-#     @pytest.mark.it("Raises ValueError if input DataFrame contains non-numeric columns")
-#     def test_input_non_numeric_cols(self, cleansed_df):
-#         with pytest.raises(ValueError) as excinfo:
-#             linear_train_test_datasets(cleansed_df, target_col="price")
-#         assert "Input DataFrame must not contain non-numeric columns" in str(
-#             excinfo.value
-#         )
-
-#     @pytest.mark.it("Raises ValueError if target col does not exist")
-#     def test_target_col_does_not_exist(self, linear_processed_df):
-#         with pytest.raises(ValueError) as excinfo:
-#             linear_train_test_datasets(linear_processed_df, target_col="invalid")
-#         assert "Target column not in input dataset" in str(excinfo.value)
-
-#     @pytest.mark.it(
-#         "Raises ValueError if DataFrame does not contain at least one feature and one target"
-#     )
-#     def test_df_without_features(self, linear_processed_df):
-#         invalid_df = linear_processed_df[["price"]]
-#         with pytest.raises(ValueError) as excinfo:
-#             linear_train_test_datasets(invalid_df, target_col="price")
-#         assert (
-#             "DataFrame must contain at least one feature column and one target column"
-#             in str(excinfo.value)
-#         )
 
 
 # @pytest.mark.describe("Linear regression model function tests")
