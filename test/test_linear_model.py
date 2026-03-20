@@ -10,7 +10,7 @@ from unittest.mock import MagicMock
 from src.linear_model import (
     linear_preprocessing,
     linear_reg_model,
-    # evaluate_linear_model,
+    evaluate_linear_model,
 )
 from src.data_prep import (
     load_data,
@@ -411,99 +411,98 @@ class TestLinearRegExceptions:
             linear_reg_model(X_train, shortened_y_train)
 
 
-# @pytest.mark.describe("Evaluate Linear Model function tests")
-# class TestEvaluateLinearModel:
+@pytest.mark.describe("Evaluate Linear Model function tests")
+class TestEvaluateLinearModel:
 
-#     @pytest.mark.it("Inputs not mutated")
-#     def test_inputs_not_mutated(self, sample_model, model_data):
-#         copy_X_test = model_data["X_test"].copy(deep=True)
-#         copy_y_test = model_data["y_test"].copy(deep=True)
-#         copy_model_coef = sample_model.coef_.copy()
-#         copy_model_intercept = sample_model.intercept_
-#         evaluate_linear_model(sample_model, model_data["X_test"], model_data["y_test"])
-#         pd.testing.assert_frame_equal(model_data["X_test"], copy_X_test)
-#         pd.testing.assert_series_equal(model_data["y_test"], copy_y_test)
-#         assert np.allclose(sample_model.coef_, copy_model_coef)
-#         assert sample_model.intercept_ == copy_model_intercept
+    @pytest.mark.it("Inputs not mutated")
+    def test_inputs_not_mutated(self, sample_model, model_data):
+        copy_X_test = model_data["X_test"].copy(deep=True)
+        copy_y_test = model_data["y_test"].copy(deep=True)
+        copy_model_coef = sample_model.coef_.copy()
+        copy_model_intercept = sample_model.intercept_
+        evaluate_linear_model(sample_model, model_data["X_test"], model_data["y_test"])
+        pd.testing.assert_frame_equal(model_data["X_test"], copy_X_test)
+        pd.testing.assert_series_equal(model_data["y_test"], copy_y_test)
+        assert np.allclose(sample_model.coef_, copy_model_coef)
+        assert sample_model.intercept_ == copy_model_intercept
 
-#     @pytest.mark.it("Returns expected format")
-#     def test_returns_expected_format(self, sample_model, model_data):
-#         output = evaluate_linear_model(
-#             sample_model, model_data["X_test"], model_data["y_test"]
-#         )
-#         assert isinstance(output, dict)
-#         assert all(
-#             isinstance(key, str) and isinstance(value, float)
-#             for key, value in output.items()
-#         )
+    @pytest.mark.it("Returns expected format")
+    def test_returns_expected_format(self, sample_model, model_data):
+        output = evaluate_linear_model(
+            sample_model, model_data["X_test"], model_data["y_test"]
+        )
+        assert isinstance(output, dict)
+        assert all(
+            isinstance(key, str) and isinstance(value, float)
+            for key, value in output.items()
+        )
 
-#     @pytest.mark.it("Outputs expected metrics")
-#     def test_returns_expected_metrics(self, sample_model, model_data):
-#         expected_metrics = {"mse", "rmse", "mae", "r2"}
-#         output = evaluate_linear_model(
-#             sample_model, model_data["X_test"], model_data["y_test"]
-#         )
-#         assert all(key in output.keys() for key in expected_metrics)
+    @pytest.mark.it("Outputs expected metrics")
+    def test_returns_expected_metrics(self, sample_model, model_data):
+        expected_metrics = {"mse", "rmse", "mae", "r2"}
+        output = evaluate_linear_model(
+            sample_model, model_data["X_test"], model_data["y_test"]
+        )
+        assert all(key in output.keys() for key in expected_metrics)
 
-#     @pytest.mark.it("Predict only called once")
-#     def test_predict_called_once(self, model_data):
-#         model = MagicMock()
-#         model.predict.return_value = np.zeros(len(model_data["y_test"]))
-#         evaluate_linear_model(model, model_data["X_test"], model_data["y_test"])
-#         model.predict.assert_called_once_with(model_data["X_test"])
+    @pytest.mark.it("Predict only called once")
+    def test_predict_called_once(self, model_data):
+        model = MagicMock()
+        model.predict.return_value = np.zeros(len(model_data["y_test"]))
+        evaluate_linear_model(model, model_data["X_test"], model_data["y_test"])
+        model.predict.assert_called_once_with(model_data["X_test"])
 
-#     @pytest.mark.it("Works with column vector predictions")
-#     def test_column_vector_predictions(self, model_data):
-#         class DummyModel:
-#             def predict(self, X):
-#                 return np.array([[1.0], [2.0], [3.0]])
-
-#         model = DummyModel()
-#         dummy_X_test = pd.DataFrame({"x": [1, 2, 3]})
-#         dummy_y_test = pd.Series([1.0, 2.0, 3.0])
-#         output = evaluate_linear_model(model, dummy_X_test, dummy_y_test)
-#         assert output["rmse"] == 0.0
+    @pytest.mark.it("Works with column vector predictions")
+    def test_column_vector_predictions(self):
+        model = MagicMock()
+        model.predict.return_value = np.array([[1.0], [2.0], [3.0]])
+        dummy_X_test = pd.DataFrame({"x": [1, 2, 3]})
+        dummy_y_test = pd.Series([1.0, 2.0, 3.0])
+        output = evaluate_linear_model(model, dummy_X_test, dummy_y_test)
+        assert output["rmse"] == 0.0
 
 
-# @pytest.mark.describe("Evaluate Linear Model exception handling")
-# class TestEvaluateLinearModelExceptions:
+@pytest.mark.describe("Evaluate Linear Model exception handling")
+class TestEvaluateLinearModelExceptions:
 
-#     @pytest.mark.it("Raises TypeError model does not have a predict method")
-#     def test_model_not_sklearn_linear(self, model_data):
-#         test_model = "not a model"
-#         with pytest.raises(TypeError) as excinfo:
-#             evaluate_linear_model(test_model, model_data["X_test"], model_data["y_test"])
-#         assert "Model must be an sklearn regressor" in str(excinfo.value)
+    @pytest.mark.it("Raises TypeError model does not have a predict method")
+    def test_model_not_sklearn_linear(self, model_data):
+        test_model = "not a model"
+        with pytest.raises(TypeError) as excinfo:
+            evaluate_linear_model(
+                test_model, model_data["X_test"], model_data["y_test"]
+            )
+        assert "Model must be an sklearn regressor" in str(excinfo.value)
 
-#     @pytest.mark.it("Raises TypeError if X_test is not a pandas DataFrame")
-#     def test_xtest_not_a_dataframe(self, sample_model, model_data):
-#         invalid_X_test = "not a dataframe"
-#         with pytest.raises(TypeError) as excinfo:
-#             evaluate_linear_model(sample_model, invalid_X_test, model_data["y_test"])
-#         assert "X_test must be a pandas DataFrame" in str(excinfo.value)
+    @pytest.mark.it("Raises TypeError if X_test is not a pandas DataFrame")
+    def test_xtest_not_a_dataframe(self, sample_model, model_data):
+        invalid_X_test = "not a dataframe"
+        with pytest.raises(TypeError) as excinfo:
+            evaluate_linear_model(sample_model, invalid_X_test, model_data["y_test"])
+        assert "X_test must be a pandas DataFrame" in str(excinfo.value)
 
-#     @pytest.mark.it(
-#         "Raises TypeError if y_test is not a pandas Series or 1D numpy array"
-#     )
-#     def test_ytest_not_1d_array(self, sample_model, model_data):
-#         invalid_y_test = "not array-like"
-#         with pytest.raises(TypeError) as excinfo:
-#             evaluate_linear_model(sample_model, model_data["X_test"], invalid_y_test)
-#         assert "y_test must be a pandas Series or 1D numpy array" in str(excinfo.value)
+    @pytest.mark.it(
+        "Raises TypeError if y_test is not a pandas Series or 1D numpy array"
+    )
+    def test_ytest_not_1d_array(self, sample_model, model_data):
+        invalid_y_test = "not array-like"
+        with pytest.raises(TypeError) as excinfo:
+            evaluate_linear_model(sample_model, model_data["X_test"], invalid_y_test)
+        assert "y_test must be a pandas Series or 1D numpy array" in str(excinfo.value)
 
-#     @pytest.mark.it("Raises ValueError if X_test and y_test lengths differ")
-#     def test_differing_test_data_lengths(self, sample_model, model_data):
-#         shortened_X_test = model_data["X_test"].head(5)
-#         with pytest.raises(ValueError) as excinfo:
-#             evaluate_linear_model(sample_model, shortened_X_test, model_data["y_test"])
-#         assert "X_test and y_test must have the same number of observations" in str(
-#             excinfo.value
-#         )
+    @pytest.mark.it("Raises ValueError if X_test and y_test lengths differ")
+    def test_differing_test_data_lengths(self, sample_model, model_data):
+        shortened_X_test = model_data["X_test"].head(5)
+        with pytest.raises(ValueError) as excinfo:
+            evaluate_linear_model(sample_model, shortened_X_test, model_data["y_test"])
+        assert "X_test and y_test must have the same number of observations" in str(
+            excinfo.value
+        )
 
-#     @pytest.mark.it("Raises ValueError if y_test is not one dimensional")
-#     def test_ytest_not_1D(self, sample_model):
-#         valid_X_test = pd.DataFrame({"x": [1, 2, 3]})
-#         invalid_y_test = np.array([[1.0], [2.0], [3.0]])
-#         with pytest.raises(ValueError) as excinfo:
-#             evaluate_linear_model(sample_model, valid_X_test, invalid_y_test)
-#         assert "y_test must be 1-dimensional" in str(excinfo.value)
+    @pytest.mark.it("Raises ValueError if y_test is not one dimensional")
+    def test_ytest_not_1D(self, sample_model):
+        valid_X_test = pd.DataFrame({"x": [1, 2, 3]})
+        invalid_y_test = np.array([[1.0], [2.0], [3.0]])
+        with pytest.raises(ValueError) as excinfo:
+            evaluate_linear_model(sample_model, valid_X_test, invalid_y_test)
+        assert "y_test must be 1-dimensional" in str(excinfo.value)

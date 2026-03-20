@@ -148,42 +148,42 @@ def linear_reg_model(X_train: pd.DataFrame, y_train: pd.Series) -> LinearRegress
     return model
 
 
-# def evaluate_linear_model(
-#     model: RegressorMixin,
-#     X_test: pd.DataFrame,
-#     y_test: pd.Series | np.ndarray,
-# ) -> dict[str, float]:
-#     """
-#     Evaluate a trained scikit-learn regressor model on called out test data.
+def evaluate_linear_model(
+    model: RegressorMixin,
+    X_test: pd.DataFrame,
+    y_test: pd.Series | np.ndarray,
+) -> dict[str, float]:
+    """
+    Evaluate a trained scikit-learn regressor model on called out test data.
 
-#     Args:
-#         model - a trained scikit-learn regressor model.
-#         X_test - the test features data.
-#         y_test - the test target data.
+    Args:
+        model - a trained scikit-learn regressor model.
+        X_test - the test features data.
+        y_test - the test target data.
 
-#     Returns:
-#         Evaluation metrics for the model (MSE, RMSE, MAE, R2).
+    Returns:
+        Evaluation metrics for the model (MSE, RMSE, MAE, R2).
 
-#     Raises:
-#         TypeError if:
-#             - model is not a scikit-learn linear regressor model
-#             - X_test is not a pandas DataFrame
-#         ValueError if:
-#             - X_test and y_test have differing number of observations
-#             - y_test is not one dimensional
-#     """
-#     if not hasattr(model, "predict"):
-#         raise TypeError("Model must be an sklearn regressor")
-#     if not isinstance(X_test, pd.DataFrame):
-#         raise TypeError("X_test must be a pandas DataFrame")
-#     if not isinstance(y_test, (pd.Series, np.ndarray)):
-#         raise TypeError("y_test must be a pandas Series or 1D numpy array")
+    Raises:
+        TypeError if:
+            - model is not a scikit-learn linear regressor model
+            - X_test is not a pandas DataFrame
+        ValueError if:
+            - X_test and y_test have differing number of observations
+            - y_test is not one dimensional
+    """
+    if not hasattr(model, "predict"):
+        raise TypeError("Model must be an sklearn regressor")
+    if not isinstance(X_test, pd.DataFrame):
+        raise TypeError("X_test must be a pandas DataFrame")
+    if not isinstance(y_test, (pd.Series, np.ndarray)):
+        raise TypeError("y_test must be a pandas Series or 1D numpy array")
 
-#     if y_test.ndim != 1:
-#         raise ValueError("y_test must be 1-dimensional")
-#     if len(X_test) != len(y_test):
-#         raise ValueError("X_test and y_test must have the same number of observations")
+    if y_test.ndim != 1:
+        raise ValueError("y_test must be 1-dimensional")
+    if len(X_test) != len(y_test):
+        raise ValueError("X_test and y_test must have the same number of observations")
 
-#     y_pred = model.predict(X_test)
-#     y_pred = np.asarray(y_pred).ravel()
-#     return evaluate_model(y_test, y_pred)
+    y_pred = model.predict(X_test)
+    y_pred = np.asarray(y_pred).ravel()
+    return evaluate_model(y_test, y_pred)
