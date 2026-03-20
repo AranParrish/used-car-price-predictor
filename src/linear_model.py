@@ -4,8 +4,6 @@ from sklearn.base import RegressorMixin
 from src.eval_metrics import evaluate_model
 import pandas as pd
 import numpy as np
-from numpy.random import RandomState
-from typing import Hashable
 
 
 def linear_preprocessing(
